@@ -509,7 +509,7 @@ export const landingPageHtml = `<!DOCTYPE html>
 
     <section class="try-section" id="get-started">
       <div class="section-label reveal">Try it</div>
-      <h2 class="section-title reveal">One prompt, one video</h2>
+      <h2 class="section-title reveal">Free trial for being a verified human</h2>
       <p class="section-desc reveal">
         Copy this into your agent. It will read the skill, verify with World&nbsp;ID if needed, and generate a video of what it thinks a day in your life looks like.
       </p>
