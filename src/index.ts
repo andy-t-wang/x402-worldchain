@@ -24,16 +24,19 @@ import {
 
 // --- Config ---
 const NETWORK = "eip155:84532" as const; // Base Sepolia
-const PRICE = "$0.35";
-const FREE_TRIAL_USES = 3;
+const PRICE = "$0.55";
+const FREE_TRIAL_USES = 1;
 const PORT = 4021;
 
 const WORLD_CHAIN = "eip155:480" as const;
 
 const EVM_ADDRESS = process.env.EVM_ADDRESS!;
-const FACILITATOR_URL = process.env.FACILITATOR_URL || "https://x402.org/facilitator";
+const FACILITATOR_URL =
+  process.env.FACILITATOR_URL || "https://x402.org/facilitator";
 const FAL_KEY = process.env.FAL_KEY!;
-const FACILITATOR_PRIVATE_KEY = process.env.FACILITATOR_PRIVATE_KEY as `0x${string}` | undefined;
+const FACILITATOR_PRIVATE_KEY = process.env.FACILITATOR_PRIVATE_KEY as
+  | `0x${string}`
+  | undefined;
 
 if (!EVM_ADDRESS) throw new Error("EVM_ADDRESS is required");
 if (!FAL_KEY) throw new Error("FAL_KEY is required");
@@ -54,18 +57,34 @@ const hooks = createAgentkitHooks({
 let facilitator402: InstanceType<typeof x402Facilitator> | undefined;
 if (FACILITATOR_PRIVATE_KEY) {
   const facilitatorAccount = privateKeyToAccount(FACILITATOR_PRIVATE_KEY);
-  const publicClient = createPublicClient({ chain: worldchain, transport: http() });
-  const walletClient = createWalletClient({ account: facilitatorAccount, chain: worldchain, transport: http() });
-  const facilitatorSigner = toFacilitatorEvmSigner({ ...publicClient, ...walletClient, address: facilitatorAccount.address } as any);
-  facilitator402 = new x402Facilitator()
-    .register(WORLD_CHAIN, new ExactEvmFacilitatorScheme(facilitatorSigner));
-  console.log(`[facilitator] World Chain facilitator enabled for ${facilitatorAccount.address}`);
+  const publicClient = createPublicClient({
+    chain: worldchain,
+    transport: http(),
+  });
+  const walletClient = createWalletClient({
+    account: facilitatorAccount,
+    chain: worldchain,
+    transport: http(),
+  });
+  const facilitatorSigner = toFacilitatorEvmSigner({
+    ...publicClient,
+    ...walletClient,
+    address: facilitatorAccount.address,
+  } as any);
+  facilitator402 = new x402Facilitator().register(
+    WORLD_CHAIN,
+    new ExactEvmFacilitatorScheme(facilitatorSigner),
+  );
+  console.log(
+    `[facilitator] World Chain facilitator enabled for ${facilitatorAccount.address}`,
+  );
 }
 
 // --- x402 resource server setup ---
 const facilitator = new HTTPFacilitatorClient({ url: FACILITATOR_URL });
-const resourceServer = new x402ResourceServer(facilitator)
-  .registerExtension(agentkitResourceServerExtension);
+const resourceServer = new x402ResourceServer(facilitator).registerExtension(
+  agentkitResourceServerExtension,
+);
 
 const routes = {
   "POST /generate": {
@@ -82,8 +101,10 @@ const routes = {
   },
 };
 
-const httpServer = new x402HTTPResourceServer(resourceServer, routes)
-  .onProtectedRequest(hooks.requestHook);
+const httpServer = new x402HTTPResourceServer(
+  resourceServer,
+  routes,
+).onProtectedRequest(hooks.requestHook);
 
 // --- Hono app ---
 const app = new Hono();
@@ -96,13 +117,19 @@ if (facilitator402) {
 
   app.post("/facilitator/verify", async (c) => {
     const { paymentPayload, paymentRequirements } = await c.req.json();
-    const result = await facilitator402!.verify(paymentPayload, paymentRequirements);
+    const result = await facilitator402!.verify(
+      paymentPayload,
+      paymentRequirements,
+    );
     return c.json(result);
   });
 
   app.post("/facilitator/settle", async (c) => {
     const { paymentPayload, paymentRequirements } = await c.req.json();
-    const result = await facilitator402!.settle(paymentPayload, paymentRequirements);
+    const result = await facilitator402!.settle(
+      paymentPayload,
+      paymentRequirements,
+    );
     return c.json(result);
   });
 }
