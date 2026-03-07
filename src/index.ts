@@ -431,25 +431,40 @@ app.use("/generate", async (c, next) => {
 app.use("/*", paymentMiddlewareFromHTTPServer(httpServer));
 
 app.post("/generate", async (c) => {
-  const body = await c.req.json();
+  console.log("[generate] Handler reached");
+  let body: any;
+  try {
+    body = await c.req.json();
+  } catch (e) {
+    console.error("[generate] Failed to parse request body:", e);
+    return c.json({ error: "Invalid JSON body" }, 400);
+  }
   const prompt = body?.prompt;
 
   if (!prompt || typeof prompt !== "string") {
     return c.json({ error: "prompt is required" }, 400);
   }
 
-  console.log(`[generate] Submitting video for prompt: "${prompt}"`);
+  const fullPrompt = `Create a 10-second vertical 9:16 TikTok-style video with voiceover narration. ${prompt}`;
+  console.log(`[generate] Submitting video for prompt: "${fullPrompt}"`);
 
-  const { request_id } = await fal.queue.submit("fal-ai/minimax-video", {
-    input: { prompt },
-  });
+  try {
+    const { request_id } = await fal.queue.submit("fal-ai/minimax-video", {
+      input: { prompt: fullPrompt },
+    });
 
-  return c.json({
-    requestId: request_id,
-    status: "queued",
-    prompt,
-    pollUrl: `https://x402-worldchain.vercel.app/status/${request_id}`,
-  });
+    console.log(`[generate] Queued with request_id: ${request_id}`);
+
+    return c.json({
+      requestId: request_id,
+      status: "queued",
+      prompt,
+      pollUrl: `https://x402-worldchain.vercel.app/status/${request_id}`,
+    });
+  } catch (e) {
+    console.error("[generate] fal.queue.submit failed:", e);
+    return c.json({ error: "Video generation failed to queue" }, 500);
+  }
 });
 
 app.get("/status/:id", async (c) => {
