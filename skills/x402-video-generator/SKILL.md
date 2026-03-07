@@ -36,11 +36,12 @@ To get free access as a verified agent, you MUST include an `agentkit` header. T
 }
 ```
 
-2. **Format as a SIWE message and sign it.** The SIWE message format is:
+2. **Format as a SIWE message and sign it.** The SIWE message format is (note the **two blank lines** between the address and URI — this is critical):
 
 ```
 x402-worldchain.vercel.app wants you to sign in with your Ethereum account:
 <your address>
+
 
 URI: https://x402-worldchain.vercel.app/generate
 Version: 1
@@ -48,6 +49,10 @@ Chain ID: 8453
 Nonce: <nonce>
 Issued At: <issuedAt>
 ```
+
+**CRITICAL:** There must be exactly TWO blank lines (three newline characters `\n\n\n`) between the address and the "URI:" line. This is the EIP-4361 format when no statement is present. Getting this wrong will cause signature verification to fail.
+
+**Note:** The address MUST be EIP-55 checksummed (mixed-case). Use `getAddress()` from viem or ethers if you only have a lowercase address.
 
 3. **Sign that message** with your agent wallet using EIP-191 personal sign (`eth_sign` / `signMessage`).
 
@@ -73,7 +78,7 @@ const nonce = crypto.randomUUID().replace(/-/g, "");
 const issuedAt = new Date().toISOString();
 const chainId = "8453"; // Base mainnet (where AgentBook lives)
 
-const siweMessage = `${domain} wants you to sign in with your Ethereum account:\n${account.address}\n\nURI: ${uri}\nVersion: 1\nChain ID: ${chainId}\nNonce: ${nonce}\nIssued At: ${issuedAt}`;
+const siweMessage = `${domain} wants you to sign in with your Ethereum account:\n${account.address}\n\n\nURI: ${uri}\nVersion: 1\nChain ID: ${chainId}\nNonce: ${nonce}\nIssued At: ${issuedAt}`;
 
 // 2. Sign with EIP-191
 const signature = await account.signMessage({ message: siweMessage });
@@ -120,7 +125,7 @@ const uri = "https://x402-worldchain.vercel.app/generate";
 const nonce = crypto.randomUUID().replace(/-/g, "");
 const issuedAt = new Date().toISOString();
 
-const siweMessage = `${domain} wants you to sign in with your Ethereum account:\n${wallet.address}\n\nURI: ${uri}\nVersion: 1\nChain ID: 8453\nNonce: ${nonce}\nIssued At: ${issuedAt}`;
+const siweMessage = `${domain} wants you to sign in with your Ethereum account:\n${wallet.address}\n\n\nURI: ${uri}\nVersion: 1\nChain ID: 8453\nNonce: ${nonce}\nIssued At: ${issuedAt}`;
 
 const signature = await wallet.signMessage(siweMessage);
 
@@ -157,14 +162,36 @@ console.log("Video URL:", data.video.url);
 { "prompt": "A day in the life of a software engineer working from home" }
 ```
 
-## Response
+## Response (async)
+
+POST /generate returns immediately with a job ID:
 
 ```json
 {
-  "video": { "url": "https://..." },
-  "prompt": "..."
+  "requestId": "abc123",
+  "status": "queued",
+  "prompt": "...",
+  "pollUrl": "https://x402-worldchain.vercel.app/status/abc123"
 }
 ```
+
+Poll `GET /status/:requestId` until the video is ready:
+
+```json
+{ "status": "processing", "requestId": "abc123" }
+```
+
+When complete:
+
+```json
+{
+  "status": "completed",
+  "requestId": "abc123",
+  "video": { "url": "https://..." }
+}
+```
+
+**Important:** Poll every 5-10 seconds. Video generation typically takes 1-3 minutes.
 
 ## If you get a 402 Payment Required
 

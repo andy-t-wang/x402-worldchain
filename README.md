@@ -14,7 +14,7 @@ Fill in `.env`:
 | Variable | Required | Description |
 |---|---|---|
 | `EVM_ADDRESS` | Yes | Wallet address that receives payments |
-| `FAL_KEY` | Yes | [fal.ai](https://fal.ai) API key for video generation |
+| `FAL_KEY` | Yes | API key for video generation |
 | `FACILITATOR_URL` | No | Remote facilitator URL (default: `https://x402.org/facilitator`) |
 | `FACILITATOR_PRIVATE_KEY` | No | Private key used for both the local World Chain facilitator and the Base registration sponsor. Enables both `/facilitator/*` and `/register` when set. |
 | `BASE_RPC_URL` | No | Base mainnet RPC used for AgentBook registration sponsorship and duplicate checks |

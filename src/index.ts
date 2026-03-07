@@ -438,13 +438,43 @@ app.post("/generate", async (c) => {
     return c.json({ error: "prompt is required" }, 400);
   }
 
-  console.log(`[generate] Generating video for prompt: "${prompt}"`);
+  console.log(`[generate] Submitting video for prompt: "${prompt}"`);
 
-  const result = await fal.subscribe("fal-ai/minimax-video", {
+  const { request_id } = await fal.queue.submit("fal-ai/minimax-video", {
     input: { prompt },
   });
 
-  return c.json({ video: result.data, prompt });
+  return c.json({
+    requestId: request_id,
+    status: "queued",
+    prompt,
+    pollUrl: `https://x402-worldchain.vercel.app/status/${request_id}`,
+  });
+});
+
+app.get("/status/:id", async (c) => {
+  const requestId = c.req.param("id");
+
+  const status = await fal.queue.status("fal-ai/minimax-video", {
+    requestId,
+    logs: false,
+  });
+
+  if (status.status === "COMPLETED") {
+    const result = await fal.queue.result("fal-ai/minimax-video", {
+      requestId,
+    });
+    return c.json({
+      status: "completed",
+      requestId,
+      video: result.data,
+    });
+  }
+
+  return c.json({
+    status: status.status === "IN_QUEUE" ? "queued" : "processing",
+    requestId,
+  });
 });
 
 // --- Export for Vercel ---
