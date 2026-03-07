@@ -3,10 +3,10 @@ export const landingPageHtml = `<!DOCTYPE html>
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DITL — A Day in the Life, by Your Agent</title>
+  <title>AgentKit — Human-Backed Agents in Action</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <style>
     *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 
@@ -24,8 +24,8 @@ export const landingPageHtml = `<!DOCTYPE html>
       --accent-glow: rgba(155, 240, 225, 0.08);
       --orb-1: #1a2a3a;
       --orb-2: #0d1f2d;
-      --font-display: 'Syne', sans-serif;
-      --font-mono: 'Space Mono', monospace;
+      --font-display: 'DM Sans', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
     }
 
     html {
@@ -128,7 +128,7 @@ export const landingPageHtml = `<!DOCTYPE html>
 
     .logo {
       font-family: var(--font-display);
-      font-weight: 800;
+      font-weight: 700;
       font-size: 18px;
       letter-spacing: -0.02em;
       color: var(--text);
@@ -189,12 +189,12 @@ export const landingPageHtml = `<!DOCTYPE html>
 
     .hero h1 {
       font-family: var(--font-display);
-      font-weight: 800;
-      font-size: clamp(36px, 5vw, 56px);
-      line-height: 1.2;
-      letter-spacing: -0.03em;
+      font-weight: 700;
+      font-size: clamp(34px, 4.5vw, 52px);
+      line-height: 1.25;
+      letter-spacing: -0.025em;
       color: var(--text);
-      max-width: 640px;
+      max-width: 600px;
       animation: fade-up 0.8s 0.1s ease both;
     }
 
@@ -280,7 +280,7 @@ export const landingPageHtml = `<!DOCTYPE html>
 
     .pricing-card h3 {
       font-family: var(--font-display);
-      font-weight: 700;
+      font-weight: 600;
       font-size: 14px;
       margin-bottom: 6px;
       color: var(--text);
@@ -295,7 +295,7 @@ export const landingPageHtml = `<!DOCTYPE html>
 
     .pricing-card .price {
       font-family: var(--font-display);
-      font-weight: 800;
+      font-weight: 700;
       font-size: 28px;
       color: var(--accent);
       margin-top: 10px;
@@ -307,88 +307,67 @@ export const landingPageHtml = `<!DOCTYPE html>
       background: linear-gradient(135deg, var(--accent-glow), transparent 60%);
     }
 
-    .steps-section {
+    .try-section {
       padding: 80px 0 100px;
     }
 
     .section-label {
       font-family: var(--font-display);
-      font-weight: 700;
+      font-weight: 600;
       font-size: 12px;
       text-transform: uppercase;
-      letter-spacing: 0.15em;
+      letter-spacing: 0.12em;
       color: var(--accent);
-      margin-bottom: 16px;
+      margin-bottom: 12px;
     }
 
     .section-title {
       font-family: var(--font-display);
-      font-weight: 800;
-      font-size: clamp(28px, 4vw, 40px);
-      letter-spacing: -0.03em;
-      color: var(--text);
-      margin-bottom: 56px;
-    }
-
-    .step {
-      display: grid;
-      grid-template-columns: 48px 1fr;
-      gap: 20px;
-      margin-bottom: 48px;
-      position: relative;
-    }
-
-    .step:not(:last-child)::after {
-      content: '';
-      position: absolute;
-      left: 23px;
-      top: 52px;
-      bottom: -44px;
-      width: 1px;
-      background: linear-gradient(to bottom, var(--border-light), transparent);
-    }
-
-    .step-num {
-      width: 48px;
-      height: 48px;
-      border-radius: 50%;
-      border: 1px solid var(--border-light);
-      background: var(--surface);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-family: var(--font-display);
-      font-weight: 800;
-      font-size: 16px;
-      color: var(--accent);
-      flex-shrink: 0;
-    }
-
-    .step-content h3 {
-      font-family: var(--font-display);
       font-weight: 700;
-      font-size: 18px;
-      margin-bottom: 8px;
-      padding-top: 10px;
+      font-size: clamp(24px, 3.5vw, 34px);
+      letter-spacing: -0.02em;
+      color: var(--text);
+      margin-bottom: 16px;
     }
 
-    .step-content p {
+    .section-desc {
       font-family: var(--font-display);
       color: var(--text-dim);
-      font-size: 14px;
-      margin-bottom: 14px;
+      font-size: 15px;
       line-height: 1.6;
+      max-width: 520px;
+      margin-bottom: 32px;
+    }
+
+    .prompt-block {
+      position: relative;
+      background: var(--surface);
+      border: 1px solid rgba(155, 240, 225, 0.15);
+      border-radius: 10px;
+      padding: 16px 20px;
+      padding-right: 70px;
+      font-family: var(--font-display);
+      font-size: 15px;
+      line-height: 1.6;
+      color: var(--text);
+      max-width: 600px;
+    }
+
+    .prompt-block .copy-btn {
+      top: 12px;
+      right: 12px;
     }
 
     .code-block {
       position: relative;
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 16px 18px;
+      border-radius: 8px;
+      padding: 10px 14px;
+      padding-right: 70px;
       font-family: var(--font-mono);
-      font-size: 12.5px;
-      line-height: 1.7;
+      font-size: 12px;
+      line-height: 1.5;
       color: var(--text-dim);
       overflow-x: auto;
       white-space: pre;
@@ -400,8 +379,8 @@ export const landingPageHtml = `<!DOCTYPE html>
 
     .copy-btn {
       position: absolute;
-      top: 10px;
-      right: 10px;
+      top: 8px;
+      right: 8px;
       background: var(--surface-2);
       border: 1px solid var(--border);
       border-radius: 6px;
@@ -483,7 +462,7 @@ export const landingPageHtml = `<!DOCTYPE html>
     <nav>
       <a href="/" class="logo">
         <span class="logo-dot"></span>
-        DITL
+        AgentKit
       </a>
       <ul class="nav-links">
         <li><a href="#get-started">Get Started</a></li>
@@ -495,11 +474,11 @@ export const landingPageHtml = `<!DOCTYPE html>
     <section class="hero">
       <div class="hero-label">
         <span class="dot"></span>
-        Powered by World Chain &amp; x402
+        Human-backed agents, real actions
       </div>
-      <h1>Your agent imagines <em>a day in your life</em></h1>
+      <h1>See human-backed agents <em>in action</em></h1>
       <p class="hero-sub">
-        Give your AI agent a skill to generate videos. Verify with World&nbsp;ID for free generations, or pay per use with x402.
+        Your agent knows you from your conversations together. Let it imagine a day in your life&nbsp;&mdash; generated as a video, powered by World&nbsp;ID.
       </p>
       <div class="hero-actions">
         <a href="#get-started" class="btn btn--primary">
@@ -514,12 +493,12 @@ export const landingPageHtml = `<!DOCTYPE html>
 
       <div class="pricing-strip">
         <div class="pricing-card pricing-card--free">
-          <h3>Verified Agent</h3>
-          <p>Register in AgentBook with World&nbsp;ID</p>
+          <h3>Human-Backed</h3>
+          <p>Verified with World&nbsp;ID via AgentBook</p>
           <div class="price">Free</div>
         </div>
         <div class="pricing-card">
-          <h3>Unverified Agent</h3>
+          <h3>Unverified</h3>
           <p>Pay per generation via x402 on World&nbsp;Chain</p>
           <div class="price">$0.55</div>
         </div>
@@ -528,51 +507,19 @@ export const landingPageHtml = `<!DOCTYPE html>
 
     <div class="divider"></div>
 
-    <section class="steps-section" id="get-started">
-      <div class="section-label reveal">Get Started</div>
-      <h2 class="section-title reveal">Three steps to your first video</h2>
-
-      <div class="step reveal">
-        <div class="step-num">1</div>
-        <div class="step-content">
-          <h3>Install the skill</h3>
-          <p>Give your agent the ability to generate videos by installing the x402 video skill.</p>
-          <div class="code-block">
-            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
-            <code>npx skills add https://github.com/andy-t-wang/x402-worldchain --skill x402-video-generator</code>
-          </div>
-        </div>
+    <section class="try-section" id="get-started">
+      <div class="section-label reveal">Try it</div>
+      <h2 class="section-title reveal">One prompt, one video</h2>
+      <p class="section-desc reveal">
+        Copy this into your agent. It will read the skill, verify with World&nbsp;ID if needed, and generate a video of what it thinks a day in your life looks like.
+      </p>
+      <div class="prompt-block reveal">
+        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        Read https://x402-worldchain.vercel.app/skill.md and follow the instructions to generate a video of what you think a day in my life looks like based on our conversations.
       </div>
-
-      <div class="step reveal">
-        <div class="step-num">2</div>
-        <div class="step-content">
-          <h3>Verify with World ID</h3>
-          <p>
-            Register your agent in <a href="https://docs.world.org/agents/agent-kit" target="_blank" rel="noopener" style="color:var(--accent);">AgentBook</a>
-            to get free video generation. Ask your agent:
-          </p>
-          <div class="code-block">
-            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
-            <code>Verify yourself with World ID and register in AgentBook so you can generate videos for free.</code>
-          </div>
-          <p style="margin-top:12px;font-size:12px;color:var(--text-muted);">
-            Without verification you get 1 free trial, then $0.55/generation via x402.
-          </p>
-        </div>
-      </div>
-
-      <div class="step reveal">
-        <div class="step-num">3</div>
-        <div class="step-content">
-          <h3>Generate your video</h3>
-          <p>Ask your agent to imagine and create. Try this prompt:</p>
-          <div class="code-block">
-            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
-            <code>Generate a video of what you think a day in my life looks like.</code>
-          </div>
-        </div>
-      </div>
+      <p class="section-desc reveal" style="margin-top:20px;font-size:13px;color:var(--text-muted);">
+        Not registered yet? Your agent can run <code style="color:var(--text-dim);background:var(--surface);padding:2px 6px;border-radius:4px;font-family:var(--font-mono);font-size:12px;">npx @worldcoin/agentkit-cli register &lt;address&gt;</code> to verify with World&nbsp;ID first.
+      </p>
     </section>
 
     <div class="divider"></div>

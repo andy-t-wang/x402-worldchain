@@ -1,28 +1,22 @@
----
-name: x402-video-generator
-description: Generate AI videos by calling the AgentKit video generation API. Use when the user asks to generate a video, create video content, or imagine what a day in their life looks like. Requires the agent to have a wallet and be registered in AgentBook.
-license: MIT
----
-
-# AgentKit Video Generator
+export const skillMarkdown = `# AgentKit Video Generator
 
 Generate videos from text prompts. If your agent is registered in AgentBook (verified with World ID), generation is free. Otherwise it costs $0.55 via x402.
 
 ## Endpoint
 
-```
+\`\`\`
 POST https://x402-worldchain.vercel.app/generate
-```
+\`\`\`
 
 ## Authentication: AgentKit Header
 
-To get free access as a verified agent, you MUST include an `agentkit` header. This header is a **base64-encoded JSON object** containing a signed SIWE (Sign-In With Ethereum) message.
+To get free access as a verified agent, you MUST include an \`agentkit\` header. This header is a **base64-encoded JSON object** containing a signed SIWE (Sign-In With Ethereum) message.
 
-### Step-by-step: Build the `agentkit` header
+### Step-by-step: Build the \`agentkit\` header
 
 1. **Construct the payload fields:**
 
-```json
+\`\`\`json
 {
   "domain": "x402-worldchain.vercel.app",
   "address": "<your agent wallet address>",
@@ -34,11 +28,11 @@ To get free access as a verified agent, you MUST include an `agentkit` header. T
   "issuedAt": "<ISO 8601 timestamp, e.g. 2026-03-07T12:00:00.000Z>",
   "signature": "<EIP-191 signature of the SIWE message>"
 }
-```
+\`\`\`
 
 2. **Format as a SIWE message and sign it.** The SIWE message format is:
 
-```
+\`\`\`
 x402-worldchain.vercel.app wants you to sign in with your Ethereum account:
 <your address>
 
@@ -47,44 +41,39 @@ Version: 1
 Chain ID: 8453
 Nonce: <nonce>
 Issued At: <issuedAt>
-```
+\`\`\`
 
-3. **Sign that message** with your agent wallet using EIP-191 personal sign (`eth_sign` / `signMessage`).
+3. **Sign that message** with your agent wallet using EIP-191 personal sign (\`signMessage\`).
 
-4. **Build the JSON payload** with all fields above plus the `signature`.
+4. **Build the JSON payload** with all fields above plus the \`signature\`.
 
 5. **Base64-encode** the JSON string.
 
-6. **Send as the `agentkit` header.**
+6. **Send as the \`agentkit\` header.**
 
 ### Example using viem
 
-```ts
-import { createWalletClient, http } from "viem";
+\`\`\`ts
 import { privateKeyToAccount } from "viem/accounts";
-import { base } from "viem/chains";
 
-const account = privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`);
+const account = privateKeyToAccount(process.env.PRIVATE_KEY as \\\`0x\\\${string}\\\`);
 
-// 1. Build SIWE message
 const domain = "x402-worldchain.vercel.app";
 const uri = "https://x402-worldchain.vercel.app/generate";
 const nonce = crypto.randomUUID().replace(/-/g, "");
 const issuedAt = new Date().toISOString();
-const chainId = "8453"; // Base mainnet (where AgentBook lives)
+const chainId = "8453";
 
-const siweMessage = `${domain} wants you to sign in with your Ethereum account:\n${account.address}\n\nURI: ${uri}\nVersion: 1\nChain ID: ${chainId}\nNonce: ${nonce}\nIssued At: ${issuedAt}`;
+const siweMessage = \\\`\\\${domain} wants you to sign in with your Ethereum account:\\n\\\${account.address}\\n\\nURI: \\\${uri}\\nVersion: 1\\nChain ID: \\\${chainId}\\nNonce: \\\${nonce}\\nIssued At: \\\${issuedAt}\\\`;
 
-// 2. Sign with EIP-191
 const signature = await account.signMessage({ message: siweMessage });
 
-// 3. Build and encode header
 const payload = {
   domain,
   address: account.address,
   uri,
   version: "1",
-  chainId: `eip155:${chainId}`,
+  chainId: \\\`eip155:\\\${chainId}\\\`,
   type: "eip191",
   nonce,
   issuedAt,
@@ -92,7 +81,6 @@ const payload = {
 };
 const agentkitHeader = btoa(JSON.stringify(payload));
 
-// 4. Make request
 const response = await fetch("https://x402-worldchain.vercel.app/generate", {
   method: "POST",
   headers: {
@@ -106,11 +94,11 @@ const response = await fetch("https://x402-worldchain.vercel.app/generate", {
 
 const data = await response.json();
 console.log("Video URL:", data.video.url);
-```
+\`\`\`
 
 ### Example using ethers.js
 
-```ts
+\`\`\`ts
 import { Wallet } from "ethers";
 
 const wallet = new Wallet(process.env.PRIVATE_KEY);
@@ -120,7 +108,7 @@ const uri = "https://x402-worldchain.vercel.app/generate";
 const nonce = crypto.randomUUID().replace(/-/g, "");
 const issuedAt = new Date().toISOString();
 
-const siweMessage = `${domain} wants you to sign in with your Ethereum account:\n${wallet.address}\n\nURI: ${uri}\nVersion: 1\nChain ID: 8453\nNonce: ${nonce}\nIssued At: ${issuedAt}`;
+const siweMessage = \\\`\\\${domain} wants you to sign in with your Ethereum account:\\n\\\${wallet.address}\\n\\nURI: \\\${uri}\\nVersion: 1\\nChain ID: 8453\\nNonce: \\\${nonce}\\nIssued At: \\\${issuedAt}\\\`;
 
 const signature = await wallet.signMessage(siweMessage);
 
@@ -149,40 +137,41 @@ const response = await fetch("https://x402-worldchain.vercel.app/generate", {
 
 const data = await response.json();
 console.log("Video URL:", data.video.url);
-```
+\`\`\`
 
 ## Request Body
 
-```json
+\`\`\`json
 { "prompt": "A day in the life of a software engineer working from home" }
-```
+\`\`\`
 
 ## Response
 
-```json
+\`\`\`json
 {
   "video": { "url": "https://..." },
   "prompt": "..."
 }
-```
+\`\`\`
 
 ## If you get a 402 Payment Required
 
-This means the `agentkit` header was missing, invalid, or your agent is not registered in AgentBook. Check:
+This means the \`agentkit\` header was missing, invalid, or your agent is not registered in AgentBook. Check:
 
-1. Is the `agentkit` header present and base64-encoded?
+1. Is the \`agentkit\` header present and base64-encoded?
 2. Is the SIWE message signed correctly with EIP-191?
-3. Is `domain` set to `x402-worldchain.vercel.app`?
-4. Is `uri` set to `https://x402-worldchain.vercel.app/generate`?
+3. Is \`domain\` set to \`x402-worldchain.vercel.app\`?
+4. Is \`uri\` set to \`https://x402-worldchain.vercel.app/generate\`?
 5. Is your agent address registered in AgentBook on Base (chain ID 8453)?
-6. Is `issuedAt` within the last 5 minutes?
+6. Is \`issuedAt\` within the last 5 minutes?
 
 ## Registering in AgentBook
 
 If your agent is not yet registered, run:
 
-```bash
+\`\`\`bash
 npx @worldcoin/agentkit-cli register <your-agent-address>
-```
+\`\`\`
 
 This will walk you through World ID verification and register your agent in AgentBook. See the [AgentKit docs](https://docs.world.org/agents/agent-kit) for more details.
+`;

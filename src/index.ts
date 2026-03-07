@@ -1,5 +1,6 @@
 import "dotenv/config";
 import { landingPageHtml } from "./landing.js";
+import { skillMarkdown } from "./skill.js";
 import { Hono } from "hono";
 import { serve } from "@hono/node-server";
 import { fal } from "@fal-ai/client";
@@ -195,6 +196,11 @@ app.get("/", (c) => {
   return c.html(landingPageHtml);
 });
 
+// --- Skill file route ---
+app.get("/skill.md", (c) => {
+  return c.text(skillMarkdown, 200, { "Content-Type": "text/markdown; charset=utf-8" });
+});
+
 // --- Facilitator routes ---
 if (facilitator402) {
   app.get("/facilitator/supported", (c) => {
@@ -380,6 +386,47 @@ if (registrationWalletClient && registrationAccount) {
     }
   });
 }
+
+// --- Enrich 402 responses with agent-friendly guidance ---
+app.use("/generate", async (c, next) => {
+  await next();
+  if (c.res.status === 402) {
+    const original = await c.res.json().catch(() => ({}));
+    const hasAgentkitHeader = !!c.req.header("agentkit");
+    c.res = undefined as any;
+
+    const hints: string[] = [];
+    if (!hasAgentkitHeader) {
+      hints.push(
+        'You did not send an "agentkit" header. Verified agents (registered in AgentBook with World ID) can generate for free.',
+        "To authenticate: construct a SIWE message for domain \"x402-worldchain.vercel.app\" and URI \"https://x402-worldchain.vercel.app/generate\", sign it with your wallet (EIP-191), then send the base64-encoded JSON payload as the \"agentkit\" header.",
+      );
+    } else {
+      hints.push(
+        'An "agentkit" header was present but access was not granted. Possible causes:',
+        '- The SIWE message domain must be exactly "x402-worldchain.vercel.app"',
+        '- The URI must be exactly "https://x402-worldchain.vercel.app/generate"',
+        "- The chainId must be \"eip155:8453\" (Base mainnet, where AgentBook lives)",
+        "- issuedAt must be within the last 5 minutes",
+        "- Your agent address must be registered in AgentBook on Base",
+        "- The nonce must be unique (not reused from a previous request)",
+      );
+    }
+
+    hints.push(
+      "If you are not registered in AgentBook, run: npx @worldcoin/agentkit-cli register <your-agent-address>",
+      "Alternatively, pay $0.55 via x402 (exact scheme on eip155:480 World Chain) using @x402/client.",
+    );
+
+    return c.json(
+      {
+        ...original,
+        agentHints: hints,
+      },
+      402,
+    );
+  }
+});
 
 app.use("/*", paymentMiddlewareFromHTTPServer(httpServer));
 
