@@ -19,7 +19,7 @@ POST https://x402-worldchain.vercel.app/generate
 This API is gated by x402. The first request without payment returns `402 Payment Required` with payment requirements. Unverified agents get 1 free trial use.
 
 - **Scheme:** `exact`
-- **Network:** `eip155:84532` (Base Sepolia)
+- **Network:** `eip155:480` (World Chain)
 - **Price:** $0.35 per video
 - **Underlying model:** MiniMax Video 01 via fal.ai
 
@@ -43,11 +43,11 @@ npm install @x402/client viem
 import { paymentFetch } from "@x402/client";
 import { createWalletClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { baseSepolia } from "viem/chains";
+import { worldchain } from "viem/chains";  // chain ID 480
 
 const wallet = createWalletClient({
   account: privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`),
-  chain: baseSepolia,
+  chain: worldchain,
   transport: http(),
 });
 

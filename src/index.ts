@@ -10,6 +10,7 @@ import {
 import { HTTPFacilitatorClient } from "@x402/core/server";
 import { x402Facilitator } from "@x402/core/facilitator";
 import { ExactEvmScheme as ExactEvmFacilitatorScheme } from "@x402/evm/exact/facilitator";
+import { registerExactEvmScheme } from "@x402/evm/exact/server";
 import { toFacilitatorEvmSigner } from "@x402/evm";
 import { createPublicClient, createWalletClient, formatEther, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
@@ -23,7 +24,7 @@ import {
 } from "@worldcoin/agentkit";
 
 // --- Config ---
-const NETWORK = "eip155:84532" as const; // Base Sepolia
+const NETWORK = "eip155:480" as const; // World Chain
 const PRICE = "$0.55";
 const FREE_TRIAL_USES = 1;
 const PORT = 4021;
@@ -148,6 +149,7 @@ const facilitator = new HTTPFacilitatorClient({ url: FACILITATOR_URL });
 const resourceServer = new x402ResourceServer(facilitator).registerExtension(
   agentkitResourceServerExtension,
 );
+registerExactEvmScheme(resourceServer);
 
 const routes = {
   "POST /generate": {
