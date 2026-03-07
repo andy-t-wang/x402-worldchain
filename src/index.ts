@@ -439,7 +439,7 @@ app.use("/generate", async (c, next) => {
   }
 });
 
-app.use("/*", paymentMiddlewareFromHTTPServer(httpServer));
+app.use("/*", paymentMiddlewareFromHTTPServer(httpServer, undefined, undefined, false));
 
 app.post("/generate", async (c) => {
   console.log("[generate] Handler reached");
@@ -481,26 +481,36 @@ app.post("/generate", async (c) => {
 app.get("/status/:id", async (c) => {
   const requestId = c.req.param("id");
 
-  const status = await fal.queue.status("fal-ai/minimax-video", {
-    requestId,
-    logs: false,
-  });
-
-  if (status.status === "COMPLETED") {
-    const result = await fal.queue.result("fal-ai/minimax-video", {
+  try {
+    const status = await fal.queue.status("fal-ai/minimax-video", {
       requestId,
+      logs: false,
     });
+
+    if (status.status === "COMPLETED") {
+      try {
+        const result = await fal.queue.result("fal-ai/minimax-video", {
+          requestId,
+        });
+        return c.json({
+          status: "completed",
+          requestId,
+          video: result.data,
+        });
+      } catch (e) {
+        console.error("[status] Failed to fetch result:", e);
+        return c.json({ status: "completed", requestId, error: "Result fetch failed, retry this request" });
+      }
+    }
+
     return c.json({
-      status: "completed",
+      status: status.status === "IN_QUEUE" ? "queued" : "processing",
       requestId,
-      video: result.data,
     });
+  } catch (e) {
+    console.error("[status] Failed to check status:", e);
+    return c.json({ status: "unknown", requestId, error: "Status check failed, retry this request" });
   }
-
-  return c.json({
-    status: status.status === "IN_QUEUE" ? "queued" : "processing",
-    requestId,
-  });
 });
 
 // --- Export for Vercel ---
