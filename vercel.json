@@ -1,7 +1,5 @@
 {
   "rewrites": [
-    { "source": "/generate", "destination": "/api" },
-    { "source": "/facilitator/:path*", "destination": "/api" },
-    { "source": "/register", "destination": "/api" }
+    { "source": "/(.*)", "destination": "/api" }
   ]
 }

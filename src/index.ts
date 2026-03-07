@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { landingPageHtml } from "./landing.js";
 import { Hono } from "hono";
 import { serve } from "@hono/node-server";
 import { fal } from "@fal-ai/client";
@@ -173,6 +174,11 @@ const httpServer = new x402HTTPResourceServer(
 
 // --- Hono app ---
 const app = new Hono();
+
+// --- Landing page ---
+app.get("/", (c) => {
+  return c.html(landingPageHtml);
+});
 
 // --- Facilitator routes ---
 if (facilitator402) {
