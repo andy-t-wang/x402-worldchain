@@ -515,7 +515,7 @@ export const landingPageHtml = `<!DOCTYPE html>
       </p>
       <div class="prompt-block reveal">
         <button class="copy-btn" onclick="copyCode(this)">Copy</button>
-        Read https://x402-worldchain.vercel.app/skill.md and follow the instructions to generate a video of what you think a day in my life looks like based on our conversations.
+        <span class="copy-text">Read https://x402-worldchain.vercel.app/skill.md and follow the instructions to generate a video of what you think a day in my life looks like based on our conversations.</span>
       </div>
       <p class="section-desc reveal" style="margin-top:20px;font-size:13px;color:var(--text-muted);">
         Not registered yet? Your agent can run <code style="color:var(--text-dim);background:var(--surface);padding:2px 6px;border-radius:4px;font-family:var(--font-mono);font-size:12px;">npx @worldcoin/agentkit-cli register &lt;address&gt;</code> to verify with World&nbsp;ID first.
@@ -540,7 +540,8 @@ export const landingPageHtml = `<!DOCTYPE html>
     function copyCode(btn) {
       var container = btn.parentElement;
       var codeEl = container.querySelector('code');
-      var text = codeEl ? codeEl.textContent : container.childNodes[0].textContent.trim();
+      var copyText = container.querySelector('.copy-text');
+      var text = codeEl ? codeEl.textContent : copyText ? copyText.textContent.trim() : container.textContent.replace('Copy', '').trim();
       navigator.clipboard.writeText(text).then(function() {
         btn.textContent = 'Copied!';
         btn.classList.add('copied');
