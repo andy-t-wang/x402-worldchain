@@ -1,0 +1,26 @@
+{
+  "name": "x402-videos",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@fal-ai/client": "^1.9.4",
+    "@hono/node-server": "^1.13.8",
+    "@worldcoin/agentkit": "^0.0.1",
+    "@x402/core": "^2.6.0",
+    "@x402/evm": "^2.6.0",
+    "@x402/hono": "^2.6.0",
+    "dotenv": "^16.4.7",
+    "hono": "^4.7.4",
+    "viem": "^2.47.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.12.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}
