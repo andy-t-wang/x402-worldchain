@@ -191,6 +191,17 @@ const httpServer = new x402HTTPResourceServer(
 // --- Hono app ---
 const app = new Hono();
 
+// --- Force HTTPS in request URL (Vercel reports http:// internally) ---
+app.use("/*", async (c, next) => {
+  const proto = c.req.header("x-forwarded-proto");
+  if (proto === "https" && c.req.url.startsWith("http://")) {
+    const url = new URL(c.req.url);
+    url.protocol = "https:";
+    Object.defineProperty(c.req.raw, "url", { value: url.toString() });
+  }
+  return next();
+});
+
 // --- Landing page ---
 app.get("/", (c) => {
   return c.html(landingPageHtml);
