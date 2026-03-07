@@ -3,7 +3,7 @@ export const landingPageHtml = `<!DOCTYPE html>
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>x402 Video Generator — World Chain</title>
+  <title>DITL — A Day in the Life, by Your Agent</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet" />
@@ -153,6 +153,7 @@ export const landingPageHtml = `<!DOCTYPE html>
     }
 
     .nav-links a {
+      font-family: var(--font-display);
       color: var(--text-dim);
       text-decoration: none;
       font-size: 13px;
@@ -189,11 +190,11 @@ export const landingPageHtml = `<!DOCTYPE html>
     .hero h1 {
       font-family: var(--font-display);
       font-weight: 800;
-      font-size: clamp(40px, 6vw, 64px);
-      line-height: 1.08;
+      font-size: clamp(36px, 5vw, 56px);
+      line-height: 1.2;
       letter-spacing: -0.03em;
       color: var(--text);
-      max-width: 700px;
+      max-width: 640px;
       animation: fade-up 0.8s 0.1s ease both;
     }
 
@@ -205,10 +206,12 @@ export const landingPageHtml = `<!DOCTYPE html>
 
     .hero-sub {
       margin-top: 24px;
-      font-size: 15px;
-      line-height: 1.8;
+      font-family: var(--font-display);
+      font-weight: 400;
+      font-size: 17px;
+      line-height: 1.6;
       color: var(--text-dim);
-      max-width: 520px;
+      max-width: 500px;
       animation: fade-up 0.8s 0.2s ease both;
     }
 
@@ -284,9 +287,10 @@ export const landingPageHtml = `<!DOCTYPE html>
     }
 
     .pricing-card p {
-      font-size: 12px;
+      font-family: var(--font-display);
+      font-size: 13px;
       color: var(--text-dim);
-      line-height: 1.6;
+      line-height: 1.5;
     }
 
     .pricing-card .price {
@@ -369,10 +373,11 @@ export const landingPageHtml = `<!DOCTYPE html>
     }
 
     .step-content p {
+      font-family: var(--font-display);
       color: var(--text-dim);
-      font-size: 13px;
+      font-size: 14px;
       margin-bottom: 14px;
-      line-height: 1.7;
+      line-height: 1.6;
     }
 
     .code-block {
@@ -430,7 +435,8 @@ export const landingPageHtml = `<!DOCTYPE html>
     footer {
       padding: 40px 0;
       text-align: center;
-      font-size: 12px;
+      font-family: var(--font-display);
+      font-size: 13px;
       color: var(--text-muted);
     }
 
@@ -477,7 +483,7 @@ export const landingPageHtml = `<!DOCTYPE html>
     <nav>
       <a href="/" class="logo">
         <span class="logo-dot"></span>
-        x402 video
+        DITL
       </a>
       <ul class="nav-links">
         <li><a href="#get-started">Get Started</a></li>
@@ -491,10 +497,9 @@ export const landingPageHtml = `<!DOCTYPE html>
         <span class="dot"></span>
         Powered by World Chain &amp; x402
       </div>
-      <h1>What does <em>a day in your life</em> look like?</h1>
+      <h1>Your agent imagines <em>a day in your life</em></h1>
       <p class="hero-sub">
-        Ask your AI agent to generate a video of its imagination.
-        Verify with World&nbsp;ID for a free generation&nbsp;&mdash; or pay per&nbsp;use with the x402 payment protocol.
+        Give your AI agent a skill to generate videos. Verify with World&nbsp;ID for free generations, or pay per use with x402.
       </p>
       <div class="hero-actions">
         <a href="#get-started" class="btn btn--primary">
