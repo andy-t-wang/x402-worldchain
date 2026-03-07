@@ -11,9 +11,9 @@ import { HTTPFacilitatorClient } from "@x402/core/server";
 import { x402Facilitator } from "@x402/core/facilitator";
 import { ExactEvmScheme as ExactEvmFacilitatorScheme } from "@x402/evm/exact/facilitator";
 import { toFacilitatorEvmSigner } from "@x402/evm";
-import { createPublicClient, createWalletClient, http } from "viem";
+import { createPublicClient, createWalletClient, formatEther, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { worldchain } from "viem/chains";
+import { base, worldchain } from "viem/chains";
 import {
   createAgentBookVerifier,
   InMemoryAgentKitStorage,
@@ -29,6 +29,14 @@ const FREE_TRIAL_USES = 1;
 const PORT = 4021;
 
 const WORLD_CHAIN = "eip155:480" as const;
+const BASE_MAINNET = "eip155:8453" as const;
+const BASE_AGENT_BOOK = "0xE1D1D3526A6FAa37eb36bD10B933C1b77f4561a4" as const;
+const DEFAULT_BASE_RPC_URL = "https://mainnet.base.org";
+const REGISTRATION_MAX_SPONSOR_WEI = parseBigIntEnv(
+  "REGISTRATION_MAX_SPONSOR_WEI",
+  "200000000000000",
+);
+const ADDRESS_REGEX = /^0x[a-fA-F0-9]{40}$/;
 
 const EVM_ADDRESS = process.env.EVM_ADDRESS!;
 const FACILITATOR_URL =
@@ -37,6 +45,7 @@ const FAL_KEY = process.env.FAL_KEY!;
 const FACILITATOR_PRIVATE_KEY = process.env.FACILITATOR_PRIVATE_KEY as
   | `0x${string}`
   | undefined;
+const BASE_RPC_URL = process.env.BASE_RPC_URL || DEFAULT_BASE_RPC_URL;
 
 if (!EVM_ADDRESS) throw new Error("EVM_ADDRESS is required");
 if (!FAL_KEY) throw new Error("FAL_KEY is required");
@@ -52,6 +61,60 @@ const hooks = createAgentkitHooks({
   mode: { type: "free-trial", uses: FREE_TRIAL_USES },
   onEvent: (event) => console.log("[agentkit]", event.type, event),
 });
+
+const basePublicClient = createPublicClient({
+  chain: base,
+  transport: http(BASE_RPC_URL),
+});
+
+let registrationAccount:
+  | ReturnType<typeof privateKeyToAccount>
+  | undefined;
+let registrationWalletClient:
+  | ReturnType<typeof createWalletClient>
+  | undefined;
+
+if (FACILITATOR_PRIVATE_KEY) {
+  registrationAccount = privateKeyToAccount(FACILITATOR_PRIVATE_KEY);
+  registrationWalletClient = createWalletClient({
+    account: registrationAccount,
+    chain: base,
+    transport: http(BASE_RPC_URL),
+  });
+  console.log(
+    `[register] Base registration sponsor enabled for ${registrationAccount.address}`,
+  );
+} else {
+  console.log(
+    "[register] Base registration sponsor disabled because FACILITATOR_PRIVATE_KEY is not configured",
+  );
+}
+
+const LOOKUP_HUMAN_ABI = [
+  {
+    inputs: [{ internalType: "address", name: "", type: "address" }],
+    name: "lookupHuman",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+] as const;
+
+const REGISTER_ABI = [
+  {
+    inputs: [
+      { internalType: "address", name: "agent", type: "address" },
+      { internalType: "uint256", name: "root", type: "uint256" },
+      { internalType: "uint256", name: "nonce", type: "uint256" },
+      { internalType: "uint256", name: "nullifierHash", type: "uint256" },
+      { internalType: "uint256[8]", name: "proof", type: "uint256[8]" },
+    ],
+    name: "register",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+] as const;
 
 // --- x402 facilitator setup (World Chain) ---
 let facilitator402: InstanceType<typeof x402Facilitator> | undefined;
@@ -134,6 +197,167 @@ if (facilitator402) {
   });
 }
 
+// --- Sponsored AgentBook registration routes ---
+if (registrationWalletClient && registrationAccount) {
+  app.get("/register", (c) => {
+    return c.json({
+      enabled: true,
+      purpose: "Sponsor AgentBook.register on Base mainnet only",
+      sponsoredNetwork: BASE_MAINNET,
+      contract: BASE_AGENT_BOOK,
+      maxSponsorCostWei: REGISTRATION_MAX_SPONSOR_WEI.toString(),
+      maxSponsorCostEth: formatEther(REGISTRATION_MAX_SPONSOR_WEI),
+      note: "This endpoint only relays AgentBook registration. It is not an x402 facilitator endpoint.",
+    });
+  });
+
+  app.post("/register", async (c) => {
+    let payload: RegistrationPayload;
+
+    try {
+      payload = parseRegistrationPayload(await c.req.json());
+    } catch (error) {
+      return c.json(
+        { error: error instanceof Error ? error.message : "Invalid payload" },
+        400,
+      );
+    }
+
+    if (payload.network !== "base") {
+      return c.json(
+        {
+          code: "UNSUPPORTED_NETWORK",
+          error: "This sponsor only supports Base mainnet registration.",
+          supportedNetwork: "base",
+          manualRegistration: buildManualRegistration(payload),
+        },
+        400,
+      );
+    }
+
+    if (payload.contract.toLowerCase() !== BASE_AGENT_BOOK.toLowerCase()) {
+      return c.json(
+        {
+          code: "UNSUPPORTED_CONTRACT",
+          error: "This sponsor only submits to the canonical Base AgentBook.",
+          expectedContract: BASE_AGENT_BOOK,
+          manualRegistration: buildManualRegistration(payload),
+        },
+        400,
+      );
+    }
+
+    const existingHumanId = await basePublicClient.readContract({
+      address: BASE_AGENT_BOOK,
+      abi: LOOKUP_HUMAN_ABI,
+      functionName: "lookupHuman",
+      args: [payload.agent],
+    });
+
+    if (existingHumanId !== 0n) {
+      return c.json(
+        {
+          code: "ALREADY_REGISTERED",
+          error: "This agent address is already registered on Base.",
+          humanId: `0x${existingHumanId.toString(16)}`,
+        },
+        409,
+      );
+    }
+
+    const proof = payload.proof.map((value) => BigInt(value)) as [
+      bigint,
+      bigint,
+      bigint,
+      bigint,
+      bigint,
+      bigint,
+      bigint,
+      bigint,
+    ];
+
+    try {
+      const feeEstimate = await basePublicClient.estimateFeesPerGas();
+      const maxFeePerGas = feeEstimate.maxFeePerGas ?? feeEstimate.gasPrice;
+
+      if (!maxFeePerGas) {
+        throw new Error("Unable to estimate Base gas fees");
+      }
+
+      const gas = await basePublicClient.estimateContractGas({
+        account: registrationAccount,
+        address: BASE_AGENT_BOOK,
+        abi: REGISTER_ABI,
+        functionName: "register",
+        args: [
+          payload.agent,
+          BigInt(payload.root),
+          BigInt(payload.nonce),
+          BigInt(payload.nullifierHash),
+          proof,
+        ],
+      });
+
+      const estimatedSponsorCostWei = gas * maxFeePerGas;
+
+      if (estimatedSponsorCostWei > REGISTRATION_MAX_SPONSOR_WEI) {
+        return c.json(
+          {
+            code: "SPONSOR_GAS_TOO_HIGH",
+            error:
+              "Base gas is above the sponsor cap right now. Try again later or self-send the transaction.",
+            estimatedGas: gas.toString(),
+            maxFeePerGas: maxFeePerGas.toString(),
+            estimatedSponsorCostWei: estimatedSponsorCostWei.toString(),
+            estimatedSponsorCostEth: formatEther(estimatedSponsorCostWei),
+            maxSponsorCostWei: REGISTRATION_MAX_SPONSOR_WEI.toString(),
+            maxSponsorCostEth: formatEther(REGISTRATION_MAX_SPONSOR_WEI),
+            manualRegistration: buildManualRegistration(payload),
+          },
+          503,
+        );
+      }
+
+      const { request } = await basePublicClient.simulateContract({
+        account: registrationAccount,
+        address: BASE_AGENT_BOOK,
+        abi: REGISTER_ABI,
+        functionName: "register",
+        args: [
+          payload.agent,
+          BigInt(payload.root),
+          BigInt(payload.nonce),
+          BigInt(payload.nullifierHash),
+          proof,
+        ],
+        maxFeePerGas,
+        maxPriorityFeePerGas: feeEstimate.maxPriorityFeePerGas,
+      });
+
+      const txHash = await registrationWalletClient.writeContract(request);
+
+      return c.json({
+        sponsored: true,
+        txHash,
+        contract: BASE_AGENT_BOOK,
+        network: payload.network,
+        estimatedSponsorCostWei: estimatedSponsorCostWei.toString(),
+        estimatedSponsorCostEth: formatEther(estimatedSponsorCostWei),
+      });
+    } catch (error) {
+      return c.json(
+        {
+          code: "REGISTRATION_RELAY_FAILED",
+          error:
+            error instanceof Error ? error.message : "Registration relay failed",
+          manualRegistration: buildManualRegistration(payload),
+        },
+        400,
+      );
+    }
+  });
+}
+
 app.use("/*", paymentMiddlewareFromHTTPServer(httpServer));
 
 app.post("/generate", async (c) => {
@@ -160,4 +384,80 @@ export default app;
 if (process.env.NODE_ENV !== "production") {
   console.log(`Starting x402 video proxy on port ${PORT}`);
   serve({ fetch: app.fetch, port: PORT });
+}
+
+type RegistrationPayload = {
+  agent: `0x${string}`;
+  root: string;
+  nonce: string;
+  nullifierHash: string;
+  proof: string[];
+  contract: string;
+  network: string;
+};
+
+function parseRegistrationPayload(input: unknown): RegistrationPayload {
+  if (!input || typeof input !== "object") {
+    throw new Error("Expected a JSON object");
+  }
+
+  const payload = input as Record<string, unknown>;
+  const agent = String(payload.agent ?? "");
+  const contract = String(payload.contract ?? "");
+  const network = String(payload.network ?? "");
+  const root = String(payload.root ?? "");
+  const nonce = String(payload.nonce ?? "");
+  const nullifierHash = String(payload.nullifierHash ?? "");
+  const proof = payload.proof;
+
+  if (!ADDRESS_REGEX.test(agent)) {
+    throw new Error("Invalid agent address");
+  }
+
+  if (!ADDRESS_REGEX.test(contract)) {
+    throw new Error("Invalid contract address");
+  }
+
+  if (!Array.isArray(proof) || proof.length !== 8) {
+    throw new Error("Proof must be an array of 8 uint256 values");
+  }
+
+  for (const value of [root, nonce, nullifierHash, ...proof]) {
+    BigInt(String(value));
+  }
+
+  return {
+    agent: agent as `0x${string}`,
+    root,
+    nonce,
+    nullifierHash,
+    proof: proof.map((value) => String(value)),
+    contract,
+    network,
+  };
+}
+
+function buildManualRegistration(payload: RegistrationPayload) {
+  return {
+    contract: payload.contract,
+    function:
+      "register(address agent, uint256 root, uint256 nonce, uint256 nullifierHash, uint256[8] proof)",
+    args: {
+      agent: payload.agent,
+      root: payload.root,
+      nonce: payload.nonce,
+      nullifierHash: payload.nullifierHash,
+      proof: payload.proof,
+    },
+  };
+}
+
+function parseBigIntEnv(name: string, fallback: string): bigint {
+  const value = process.env[name] || fallback;
+
+  try {
+    return BigInt(value);
+  } catch {
+    throw new Error(`${name} must be a valid integer string in wei`);
+  }
 }

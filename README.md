@@ -16,7 +16,9 @@ Fill in `.env`:
 | `EVM_ADDRESS` | Yes | Wallet address that receives payments |
 | `FAL_KEY` | Yes | [fal.ai](https://fal.ai) API key for video generation |
 | `FACILITATOR_URL` | No | Remote facilitator URL (default: `https://x402.org/facilitator`) |
-| `FACILITATOR_PRIVATE_KEY` | No | Private key for the local World Chain facilitator wallet. Enables `/facilitator/*` routes when set. |
+| `FACILITATOR_PRIVATE_KEY` | No | Private key used for both the local World Chain facilitator and the Base registration sponsor. Enables both `/facilitator/*` and `/register` when set. |
+| `BASE_RPC_URL` | No | Base mainnet RPC used for AgentBook registration sponsorship and duplicate checks |
+| `REGISTRATION_MAX_SPONSOR_WEI` | No | Max Base gas cost the service will sponsor for a registration before refusing |
 
 ```bash
 npm run dev
@@ -41,6 +43,48 @@ Returns:
 ```json
 { "video": { "url": "..." }, "prompt": "..." }
 ```
+
+## Sponsored Registration Endpoint
+
+When `FACILITATOR_PRIVATE_KEY` is set, the server also exposes a dedicated Base relayer for AgentBook registration:
+
+### `GET /register`
+
+Returns route metadata and the current sponsor cap. This endpoint is informational only and exists to make it explicit that `/register` is not part of the facilitator API.
+
+### `POST /register`
+
+This endpoint only sponsors `AgentBook.register(...)` on **Base mainnet**. It is not a general transaction relay.
+
+Before broadcasting, the server:
+
+- checks the Base AgentBook on-chain to see whether the agent address is already registered
+- estimates gas and refuses to sponsor when the estimated cost exceeds `REGISTRATION_MAX_SPONSOR_WEI`
+
+If gas is too high, the response includes the manual contract call payload so the client can self-send later or retry when fees drop.
+
+Example:
+
+```bash
+curl -X POST http://localhost:4021/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agent": "0x1234567890abcdef1234567890abcdef12345678",
+    "root": "123456789",
+    "nonce": "0",
+    "nullifierHash": "987654321",
+    "proof": ["0x1", "0x2", "0x3", "0x4", "0x5", "0x6", "0x7", "0x8"],
+    "contract": "0xE1D1D3526A6FAa37eb36bD10B933C1b77f4561a4",
+    "network": "base"
+  }'
+```
+
+Possible responses:
+
+- `200` with `txHash` when the server sponsors the registration
+- `409` when the agent is already registered on Base
+- `503` when gas is above the sponsor cap
+- `400` for invalid payloads or unsupported networks/contracts
 
 ## Facilitator Endpoints
 
