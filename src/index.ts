@@ -439,6 +439,8 @@ app.use("/generate", async (c, next) => {
   }
 });
 
+// Initialize facilitator in background (don't block requests)
+httpServer.initialize().catch((e) => console.error("[x402] Facilitator init failed:", e));
 app.use("/*", paymentMiddlewareFromHTTPServer(httpServer, undefined, undefined, false));
 
 app.post("/generate", async (c) => {
