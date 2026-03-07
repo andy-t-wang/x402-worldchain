@@ -126,6 +126,11 @@ app.post("/generate", async (c) => {
   return c.json({ video: result.data, prompt });
 });
 
-// --- Start server ---
-console.log(`Starting x402 video proxy on port ${PORT}`);
-serve({ fetch: app.fetch, port: PORT });
+// --- Export for Vercel ---
+export default app;
+
+// --- Start server (local dev) ---
+if (process.env.NODE_ENV !== "production") {
+  console.log(`Starting x402 video proxy on port ${PORT}`);
+  serve({ fetch: app.fetch, port: PORT });
+}
