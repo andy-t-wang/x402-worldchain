@@ -1,4 +1,4 @@
-export const skillMarkdown = `# AgentKit Video Generator
+export const skillMarkdown = `# AgentVid
 
 Generate 10-second vertical (9:16) videos from text prompts, in the style of a TikTok with AI voiceover narration. Free if your agent is registered in AgentBook (verified with World ID), otherwise $0.55 via x402.
 

@@ -147,9 +147,24 @@ if (FACILITATOR_PRIVATE_KEY) {
 }
 
 // --- x402 resource server setup ---
+const WORLD_CHAIN_USDC = "0x79A02482A880bCE3F13e09Da970dC34db4CD24d1";
+const evmServerScheme = new ExactEvmServerScheme().registerMoneyParser(
+  async (amount, network) => {
+    if (network === WORLD_CHAIN) {
+      const tokenAmount = Math.round(amount * 1e6).toString();
+      return {
+        amount: tokenAmount,
+        asset: WORLD_CHAIN_USDC,
+        extra: { name: "USD Coin", version: "2" },
+      };
+    }
+    return null;
+  },
+);
+
 const facilitatorClient = new HTTPFacilitatorClient({ url: FACILITATOR_URL });
 const resourceServer = new x402ResourceServer(facilitatorClient)
-  .register(NETWORK, new ExactEvmServerScheme())
+  .register(NETWORK, evmServerScheme)
   .registerExtension(agentkitResourceServerExtension);
 
 const routes = {

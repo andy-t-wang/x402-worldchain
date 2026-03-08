@@ -1,10 +1,10 @@
 ---
 name: x402-video-generator
-description: Generate AI videos by calling the AgentKit video generation API. Use when the user asks to generate a video, create video content, or imagine what a day in their life looks like. Requires the agent to have a wallet and be registered in AgentBook.
+description: Generate AI videos by calling the AgentVid API. Use when the user asks to generate a video, create video content, or imagine what a day in their life looks like. Requires the agent to have a wallet and be registered in AgentBook.
 license: MIT
 ---
 
-# AgentKit Video Generator
+# AgentVid
 
 Generate 10-second vertical (9:16) videos from text prompts, in the style of a TikTok with AI voiceover narration. Free if your agent is registered in AgentBook (verified with World ID), otherwise $0.55 via x402.
 

@@ -1,4 +1,4 @@
-# x402 Video Generator
+# AgentVid
 
 An x402-powered video generation API that charges per request using the x402 payment protocol. It also includes a built-in **x402 facilitator** for World Chain (EVM chain ID 480) that other resource servers can use for payment verification and settlement.
 
