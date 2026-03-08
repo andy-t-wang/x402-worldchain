@@ -43,7 +43,7 @@ const ADDRESS_REGEX = /^0x[a-fA-F0-9]{40}$/;
 
 const EVM_ADDRESS = process.env.EVM_ADDRESS!;
 const FACILITATOR_URL =
-  process.env.FACILITATOR_URL || "https://x402.org/facilitator";
+  process.env.FACILITATOR_URL || "https://x402-worldchain.vercel.app/facilitator";
 const FAL_KEY = process.env.FAL_KEY!;
 const FACILITATOR_PRIVATE_KEY = process.env.FACILITATOR_PRIVATE_KEY as
   | `0x${string}`
@@ -147,36 +147,21 @@ if (FACILITATOR_PRIVATE_KEY) {
 }
 
 // --- x402 resource server setup ---
-const WORLD_CHAIN_USDC = "0x79A02482A880bCE3F13e09Da970dC34db4CD24d1";
-const evmServerScheme = new ExactEvmServerScheme().registerMoneyParser(
-  async (amount, network) => {
-    if (network === WORLD_CHAIN) {
-      const tokenAmount = Math.round(amount * 1e6).toString();
-      return {
-        amount: tokenAmount,
-        asset: WORLD_CHAIN_USDC,
-        extra: { name: "USD Coin", version: "2" },
-      };
-    }
-    return null;
-  },
-);
-
-const facilitator = new HTTPFacilitatorClient({ url: FACILITATOR_URL });
-const resourceServer = new x402ResourceServer(facilitator).registerExtension(
-  agentkitResourceServerExtension,
-);
-resourceServer.register(WORLD_CHAIN, evmServerScheme);
+const facilitatorClient = new HTTPFacilitatorClient({ url: FACILITATOR_URL });
+const resourceServer = new x402ResourceServer(facilitatorClient)
+  .register(NETWORK, new ExactEvmServerScheme())
+  .registerExtension(agentkitResourceServerExtension);
 
 const routes = {
   "POST /generate": {
-    accepts: {
-      scheme: "exact",
-      network: NETWORK,
-      payTo: EVM_ADDRESS,
-      price: PRICE,
-    },
-    description: "Generate a video from a text prompt",
+    accepts: [
+      {
+        scheme: "exact",
+        price: PRICE,
+        network: NETWORK,
+        payTo: EVM_ADDRESS,
+      },
+    ],
     extensions: declareAgentkitExtension({
       mode: { type: "free-trial", uses: FREE_TRIAL_USES },
     }),
@@ -439,9 +424,7 @@ app.use("/generate", async (c, next) => {
   }
 });
 
-// Initialize facilitator in background (don't block requests)
-httpServer.initialize().catch((e) => console.error("[x402] Facilitator init failed:", e));
-app.use("/*", paymentMiddlewareFromHTTPServer(httpServer, undefined, undefined, false));
+app.use("/*", paymentMiddlewareFromHTTPServer(httpServer));
 
 app.post("/generate", async (c) => {
   console.log("[generate] Handler reached");
