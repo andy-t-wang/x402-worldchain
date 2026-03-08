@@ -206,6 +206,14 @@ const httpServer = new x402HTTPResourceServer(
   routes,
 ).onProtectedRequest(hooks.requestHook);
 
+// Log when initialization completes (this promise is awaited by payment middleware)
+const initStart = Date.now();
+httpServer.initialize().then(() => {
+  console.log(`[init] httpServer.initialize() completed in ${Date.now() - initStart}ms`);
+}).catch((e: any) => {
+  console.error(`[init] httpServer.initialize() FAILED in ${Date.now() - initStart}ms: ${e?.message || e}`);
+});
+
 // --- Hono app ---
 const app = new Hono();
 
@@ -220,9 +228,13 @@ app.use("/*", async (c, next) => {
   }
   if (c.req.method === "POST") {
     try {
-      const buf = await c.req.raw.clone().arrayBuffer();
+      const cloned = c.req.raw.clone();
+      const buf = await cloned.arrayBuffer();
       (c as any)._cachedBody = new TextDecoder().decode(buf);
-    } catch {}
+      console.log(`[body-cache] Cached ${buf.byteLength} bytes for ${c.req.path}`);
+    } catch (e: any) {
+      console.error(`[body-cache] FAILED for ${c.req.path}: ${e?.message || e}`);
+    }
   }
   return next();
 });
@@ -478,11 +490,24 @@ app.use("/generate", async (c, next) => {
   }
 });
 
-app.use("/*", paymentMiddlewareFromHTTPServer(httpServer));
+// Wrap payment middleware with logging to diagnose Vercel hangs
+const _paymentMw = paymentMiddlewareFromHTTPServer(httpServer);
+app.use("/*", async (c, next) => {
+  const t0 = Date.now();
+  console.log(`[payment-mw] START ${c.req.method} ${c.req.path}`);
+  try {
+    await _paymentMw(c, next);
+    console.log(`[payment-mw] DONE ${c.req.method} ${c.req.path} ${Date.now() - t0}ms status=${c.res?.status}`);
+  } catch (e: any) {
+    console.error(`[payment-mw] ERROR ${c.req.method} ${c.req.path} ${Date.now() - t0}ms: ${e?.message || e}`);
+    throw e;
+  }
+});
 
 app.post("/generate", async (c) => {
   const startTime = Date.now();
-  console.log("[generate] Handler reached, reading body...");
+  const hasCachedBody = !!(c as any)._cachedBody;
+  console.log(`[generate] Handler reached. cachedBody=${hasCachedBody}`);
   let body: any;
   try {
     const cached = (c as any)._cachedBody as string | undefined;
@@ -490,12 +515,19 @@ app.post("/generate", async (c) => {
       body = JSON.parse(cached);
       console.log("[generate] Body (cached):", cached.slice(0, 200));
     } else {
-      body = await c.req.json();
-      console.log("[generate] Body (stream):", JSON.stringify(body));
+      // Stream fallback with 5s timeout to prevent Vercel 504
+      console.log("[generate] No cached body, reading stream with timeout...");
+      const streamPromise = c.req.text();
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Body read timeout after 5s")), 5000)
+      );
+      const rawBody = await Promise.race([streamPromise, timeoutPromise]);
+      body = JSON.parse(rawBody);
+      console.log("[generate] Body (stream):", rawBody.slice(0, 200));
     }
-  } catch (e) {
-    console.error("[generate] Failed to parse body:", e);
-    return c.json({ error: "Invalid JSON body. Send {\"prompt\": \"...\"}" }, 400);
+  } catch (e: any) {
+    console.error("[generate] Failed to parse body:", e?.message || e);
+    return c.json({ error: "Invalid JSON body. Send {\"prompt\": \"...\"}", detail: e?.message }, 400);
   }
   const prompt = body?.prompt;
 
