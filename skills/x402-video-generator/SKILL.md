@@ -4,29 +4,32 @@ description: Generate AI videos by calling the AgentVid API. Use when the user a
 license: MIT
 ---
 
-# AgentVid
+# AgentVid — Generate a Video
 
-Generate 10-second vertical (9:16) videos from text prompts, in the style of a TikTok with AI voiceover narration. Free if your agent is registered in AgentBook (verified with World ID), otherwise $0.55 via x402.
+You are calling the AgentVid API to generate a short TikTok-style video. This produces a 10-second vertical (9:16) video with AI voiceover narration.
 
-## Quick Start
+## What you need
 
-### 1. Install dependencies (if needed)
+- **Your wallet private key** (you already have this as an agent — check your environment for PRIVATE_KEY or similar)
+- **npm packages**: `siwe` and `viem` (install with `npm install siwe viem` if not already available)
 
-```bash
-npm install siwe viem
-```
+## Instructions
 
-### 2. Generate a video
+Follow these steps exactly. Write a TypeScript script, run it, and return the video URL to the user.
 
-Run this script (replace PRIVATE_KEY with your agent wallet's private key):
+### Step 1: Write and run this script
+
+Create a `.ts` file and execute it with `npx tsx`. Replace the prompt with what the user asked for. Only describe the scene/story — the server adds formatting instructions automatically.
 
 ```ts
 import { SiweMessage } from "siwe";
 import { privateKeyToAccount } from "viem/accounts";
 
+// Use your agent wallet private key
 const account = privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`);
+console.log("Using wallet:", account.address);
 
-// Build SIWE message using the siwe library (ensures correct format)
+// 1. Build SIWE auth header — you MUST use the siwe package, never build the message string manually
 const siweMsg = new SiweMessage({
   domain: "x402-worldchain.vercel.app",
   address: account.address,
@@ -36,12 +39,8 @@ const siweMsg = new SiweMessage({
   nonce: crypto.randomUUID().replace(/-/g, ""),
   issuedAt: new Date().toISOString(),
 });
-const message = siweMsg.prepareMessage();
+const signature = await account.signMessage({ message: siweMsg.prepareMessage() });
 
-// Sign with EIP-191
-const signature = await account.signMessage({ message });
-
-// Build agentkit header
 const agentkitHeader = btoa(JSON.stringify({
   domain: "x402-worldchain.vercel.app",
   address: account.address,
@@ -54,106 +53,42 @@ const agentkitHeader = btoa(JSON.stringify({
   signature,
 }));
 
-// Submit video generation
+// 2. Submit the video generation request
 const res = await fetch("https://x402-worldchain.vercel.app/generate", {
   method: "POST",
   headers: { "Content-Type": "application/json", "agentkit": agentkitHeader },
-  body: JSON.stringify({ prompt: "A day in the life of a software engineer" }),
+  body: JSON.stringify({ prompt: "YOUR PROMPT HERE" }),
 });
+
+if (!res.ok) {
+  const err = await res.json().catch(() => ({ error: res.statusText }));
+  console.error("Request failed:", res.status, JSON.stringify(err, null, 2));
+  process.exit(1);
+}
+
 const data = await res.json();
-console.log(data);
-// { requestId: "...", status: "queued", pollUrl: "https://x402-worldchain.vercel.app/status/..." }
+console.log("Queued:", data.requestId);
 
-// Poll for result — video generation takes 2-5 minutes, poll every 20 seconds
-const poll = async (url: string): Promise<any> => {
-  while (true) {
-    await new Promise(r => setTimeout(r, 20000));
-    const s = await fetch(url).then(r => r.json());
-    console.log("Status:", s.status);
-    if (s.status === "completed") return s;
-  }
-};
-const result = await poll(data.pollUrl);
-console.log("Video URL:", result.video.url);
-```
-
-## API Reference
-
-### POST /generate
-
-**Headers:**
-- `Content-Type: application/json`
-- `agentkit: <base64-encoded JSON>` — required for free access
-
-**Body:**
-```json
-{ "prompt": "your video prompt here" }
-```
-
-The server automatically wraps your prompt to produce a 10-second vertical (9:16) TikTok-style video with voiceover. Just describe the scene/story — no need to specify format.
-
-**Response (202-style, returns immediately):**
-```json
-{
-  "requestId": "abc123",
-  "status": "queued",
-  "prompt": "...",
-  "pollUrl": "https://x402-worldchain.vercel.app/status/abc123"
+// 3. Poll for the result — this takes 2-5 MINUTES, poll every 20 seconds, do NOT give up early
+let result: any;
+while (true) {
+  await new Promise(r => setTimeout(r, 20000));
+  const s = await fetch(data.pollUrl).then(r => r.json());
+  console.log("Status:", s.status);
+  if (s.status === "completed") { result = s; break; }
 }
+
+console.log("Video URL:", result.video.video.url);
 ```
 
-### GET /status/:requestId
+### Step 2: Return the video URL
 
-Video generation takes 2-5 minutes. Poll this URL every 20 seconds until `status` is `"completed"`. Be patient — do not give up early.
+Once the script prints the video URL, share it with the user. The URL is a direct link to an .mp4 file they can watch or download.
 
-**Response (processing):**
-```json
-{ "status": "processing", "requestId": "abc123" }
-```
+## Important notes
 
-**Response (complete):**
-```json
-{
-  "status": "completed",
-  "requestId": "abc123",
-  "video": { "url": "https://..." }
-}
-```
-
-## Building the agentkit header
-
-The `agentkit` header is a **base64-encoded JSON string** with these fields:
-
-| Field | Value |
-|-------|-------|
-| domain | `x402-worldchain.vercel.app` |
-| address | Your agent's EIP-55 checksummed wallet address |
-| uri | `https://x402-worldchain.vercel.app/generate` |
-| version | `"1"` |
-| chainId | `"eip155:480"` |
-| type | `"eip191"` |
-| nonce | Random alphanumeric string, at least 8 chars |
-| issuedAt | ISO 8601 timestamp (must be within last 5 minutes) |
-| signature | EIP-191 signature of the SIWE message |
-
-**To create the signature:** Build a SIWE message using the `siwe` npm package's `SiweMessage` class with the fields above (use numeric `chainId: 480`, not the string). Call `.prepareMessage()` to get the message string, then sign it with `signMessage` (EIP-191 personal sign).
-
-**Important:** Do NOT manually construct the SIWE message string. Always use the `siwe` package's `SiweMessage.prepareMessage()` method to ensure correct formatting.
-
-## If you get a 402 Payment Required
-
-The response body includes an `agentHints` array with guidance. Common issues:
-1. Missing or malformed `agentkit` header
-2. SIWE message format mismatch (use the `siwe` package, don't build manually)
-3. Address not EIP-55 checksummed
-4. `issuedAt` older than 5 minutes
-5. Agent not registered in AgentBook
-
-## Registering in AgentBook
-
-If not registered, run:
-```bash
-npx @worldcoin/agentkit-cli register <your-agent-address>
-```
-
-See [AgentKit docs](https://docs.world.org/agents/agent-kit) for details.
+- **You are likely already verified.** If your wallet is registered in AgentBook (World ID verified), generation is free. Just send the `agentkit` header as shown above and it will work.
+- **Do not specify video format in your prompt.** Just describe the scene. The server wraps your prompt to produce a TikTok-style video with voiceover automatically.
+- **Video generation is slow (2-5 minutes).** The `/generate` endpoint returns instantly with a `pollUrl`. You must poll that URL every 20 seconds until the status is `"completed"`. Do not time out or give up.
+- **If you get a 402 error**, read the `agentHints` array in the response body — it tells you exactly what went wrong. The most common issue is not sending the `agentkit` header.
+- **The video URL** is at `result.video.video.url` in the poll response (nested under two `video` keys).

@@ -1,6 +1,8 @@
 import "dotenv/config";
 import { landingPageHtml } from "./landing.js";
-import { skillMarkdown } from "./skill.js";
+import { readFileSync } from "node:fs";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { Hono } from "hono";
 import { serve } from "@hono/node-server";
 import { fal } from "@fal-ai/client";
@@ -56,13 +58,21 @@ if (!FAL_KEY) throw new Error("FAL_KEY is required");
 fal.config({ credentials: FAL_KEY });
 
 // --- AgentKit setup ---
+let lastAgentkitError: string | undefined;
 const agentBook = createAgentBookVerifier();
 const storage = new InMemoryAgentKitStorage();
 const hooks = createAgentkitHooks({
   agentBook,
   storage,
   mode: { type: "free-trial", uses: FREE_TRIAL_USES },
-  onEvent: (event) => console.log("[agentkit]", event.type, event),
+  onEvent: (event) => {
+    console.log("[agentkit]", event.type, event);
+    if (event.type === "validation_failed") {
+      lastAgentkitError = (event as any).error || JSON.stringify(event);
+    } else {
+      lastAgentkitError = undefined;
+    }
+  },
 });
 
 const basePublicClient = createPublicClient({
@@ -207,7 +217,9 @@ app.get("/", (c) => {
   return c.html(landingPageHtml);
 });
 
-// --- Skill file route ---
+// --- Skill file route (serves skills/x402-video-generator/SKILL.md) ---
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const skillMarkdown = readFileSync(resolve(__dirname, "../skills/x402-video-generator/SKILL.md"), "utf-8");
 app.get("/skill.md", (c) => {
   return c.text(skillMarkdown, 200, { "Content-Type": "text/markdown; charset=utf-8" });
 });
@@ -432,7 +444,8 @@ app.use("/generate", async (c, next) => {
 
     // Preserve the payment-required header, return proper 402 with body
     const paymentHeader = c.res.headers.get("payment-required");
-    c.res = new Response(JSON.stringify({ error: "Payment required", agentHints: hints }), {
+    const debugInfo = lastAgentkitError ? { agentkitError: lastAgentkitError } : {};
+    c.res = new Response(JSON.stringify({ error: "Payment required", ...debugInfo, agentHints: hints }), {
       status: 402,
       headers: {
         "Content-Type": "application/json",
