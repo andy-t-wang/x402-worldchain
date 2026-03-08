@@ -1,35 +1,24 @@
 ---
 name: x402-video-generator
-description: Generate 8-second vertical (9:16) videos with sound by calling the AgentVid API. Use when the user asks to generate a video, create video content, or imagine what a day in their life looks like. Requires the agent to have a wallet and be registered in AgentBook.
+description: Generate 8-second vertical (9:16) videos with sound by calling the AgentVid API. Use when the user asks to generate a video, create video content, or imagine what a day in their life looks like.
 license: MIT
 ---
 
 # AgentVid — Generate a Video
 
-You are calling the AgentVid API to generate a short TikTok-style video. This produces an 8-second vertical (9:16) video with native audio (dialogue, sound effects, and ambient noise).
-
-## What you need
-
-- **Your wallet private key** (you already have this as an agent — check your environment for PRIVATE_KEY or similar)
-- **npm packages**: `siwe` and `viem` (install with `npm install siwe viem` if not already available)
+Generate a short TikTok-style 8-second vertical (9:16) video with native audio (dialogue, sound effects, ambient noise).
 
 ## Instructions
 
-Follow these steps exactly. Write a TypeScript script, run it, and return the video URL to the user.
-
-### Step 1: Write and run this script
-
-Create a `.ts` file and execute it with `npx tsx`. Replace the prompt with what the user asked for. Only describe the scene/story — the server adds formatting instructions automatically.
+Write this TypeScript script to a `.ts` file, replace `"YOUR PROMPT HERE"` with a scene description based on what the user asked for, then run it with `npx tsx <file>`. Only describe the scene — the server handles video formatting.
 
 ```ts
 import { SiweMessage } from "siwe";
 import { privateKeyToAccount } from "viem/accounts";
 
-// Use your agent wallet private key
 const account = privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`);
 console.log("Using wallet:", account.address);
 
-// 1. Build SIWE auth header — you MUST use the siwe package, never build the message string manually
 const siweMsg = new SiweMessage({
   domain: "x402-worldchain.vercel.app",
   address: account.address,
@@ -53,7 +42,6 @@ const agentkitHeader = btoa(JSON.stringify({
   signature,
 }));
 
-// 2. Submit the video generation request
 const res = await fetch("https://x402-worldchain.vercel.app/generate", {
   method: "POST",
   headers: { "Content-Type": "application/json", "agentkit": agentkitHeader },
@@ -69,7 +57,7 @@ if (!res.ok) {
 const data = await res.json();
 console.log("Queued:", data.requestId);
 
-// 3. Poll for the result — this takes 2-5 MINUTES, poll every 20 seconds, do NOT give up early
+// Poll every 20s — video takes 2-5 minutes. Do NOT give up early.
 let result: any;
 while (true) {
   await new Promise(r => setTimeout(r, 20000));
@@ -81,14 +69,14 @@ while (true) {
 console.log("Video URL:", result.video.video.url);
 ```
 
-### Step 2: Return the video URL
+## After the script finishes
 
-Once the script prints the video URL, share it with the user. The URL is a direct link to an .mp4 file they can watch or download.
+Share the video URL with the user. It's a direct `.mp4` link they can watch or download.
 
-## Important notes
+## Notes
 
-- **You are likely already verified.** If your wallet is registered in AgentBook (World ID verified), generation is free. Just send the `agentkit` header as shown above and it will work.
-- **Do not specify video format in your prompt.** Just describe the scene. The server wraps your prompt to produce a vertical video with native audio automatically.
-- **Video generation is slow (2-5 minutes).** The `/generate` endpoint returns instantly with a `pollUrl`. You must poll that URL every 20 seconds until the status is `"completed"`. Do not time out or give up.
-- **If you get a 402 error**, read the `agentHints` array in the response body — it tells you exactly what went wrong. The most common issue is not sending the `agentkit` header.
-- **The video URL** is at `result.video.video.url` in the poll response (nested under two `video` keys).
+- Install `siwe` and `viem` if not already available: `npm install siwe viem`
+- Do not specify video format in your prompt — just describe the scene/story.
+- Video generation takes 2-5 minutes. The script polls automatically. Do not stop it early.
+- The video URL is at `result.video.video.url` (nested under two `video` keys).
+- If you get a 402 error, read the `agentHints` array in the response — it tells you what went wrong.
