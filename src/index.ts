@@ -220,22 +220,14 @@ const app = new Hono();
 // --- Force HTTPS in request URL (Vercel reports http:// internally) ---
 // --- Also cache POST body before payment middleware consumes the stream ---
 app.use("/*", async (c, next) => {
+  console.log(`[early-mw] ${c.req.method} ${c.req.path}`);
   const proto = c.req.header("x-forwarded-proto");
   if (proto === "https" && c.req.url.startsWith("http://")) {
     const url = new URL(c.req.url);
     url.protocol = "https:";
     Object.defineProperty(c.req.raw, "url", { value: url.toString() });
   }
-  if (c.req.method === "POST") {
-    try {
-      const cloned = c.req.raw.clone();
-      const buf = await cloned.arrayBuffer();
-      (c as any)._cachedBody = new TextDecoder().decode(buf);
-      console.log(`[body-cache] Cached ${buf.byteLength} bytes for ${c.req.path}`);
-    } catch (e: any) {
-      console.error(`[body-cache] FAILED for ${c.req.path}: ${e?.message || e}`);
-    }
-  }
+  // No body caching — payment middleware only reads headers, not body
   return next();
 });
 
@@ -437,6 +429,17 @@ if (registrationWalletClient && registrationAccount) {
   });
 }
 
+// --- Debug: simple POST echo to verify POST requests work on Vercel ---
+app.post("/debug-post", async (c) => {
+  console.log("[debug-post] reached");
+  try {
+    const body = await c.req.json();
+    return c.json({ ok: true, echo: body });
+  } catch (e: any) {
+    return c.json({ ok: false, error: e?.message });
+  }
+});
+
 // --- Enrich 402 responses with agent-friendly guidance ---
 app.use("/generate", async (c, next) => {
   const method = c.req.method;
@@ -506,25 +509,17 @@ app.use("/*", async (c, next) => {
 
 app.post("/generate", async (c) => {
   const startTime = Date.now();
-  const hasCachedBody = !!(c as any)._cachedBody;
-  console.log(`[generate] Handler reached. cachedBody=${hasCachedBody}`);
+  console.log("[generate] Handler reached, reading body...");
   let body: any;
   try {
-    const cached = (c as any)._cachedBody as string | undefined;
-    if (cached) {
-      body = JSON.parse(cached);
-      console.log("[generate] Body (cached):", cached.slice(0, 200));
-    } else {
-      // Stream fallback with 5s timeout to prevent Vercel 504
-      console.log("[generate] No cached body, reading stream with timeout...");
-      const streamPromise = c.req.text();
-      const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("Body read timeout after 5s")), 5000)
-      );
-      const rawBody = await Promise.race([streamPromise, timeoutPromise]);
-      body = JSON.parse(rawBody);
-      console.log("[generate] Body (stream):", rawBody.slice(0, 200));
-    }
+    // Read body with 5s timeout to prevent Vercel 504 if stream hangs
+    const streamPromise = c.req.text();
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("Body read timeout after 5s")), 5000)
+    );
+    const rawBody = await Promise.race([streamPromise, timeoutPromise]);
+    body = JSON.parse(rawBody);
+    console.log("[generate] Body:", rawBody.slice(0, 200));
   } catch (e: any) {
     console.error("[generate] Failed to parse body:", e?.message || e);
     return c.json({ error: "Invalid JSON body. Send {\"prompt\": \"...\"}", detail: e?.message }, 400);

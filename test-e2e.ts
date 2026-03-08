@@ -59,29 +59,96 @@ async function buildAgentkitHeader(): Promise<string> {
   return btoa(JSON.stringify(payload));
 }
 
+/** fetch with a timeout (default 15s) */
+async function fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs = 15000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function testUnauthenticated() {
+  console.log("\n========== STEP 0.5: POST /generate (no auth — expect 402) ==========");
+  const t0 = Date.now();
+  try {
+    const res = await fetchWithTimeout(`${BASE}/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt: "test unauthenticated" }),
+    });
+    const elapsed = Date.now() - t0;
+    console.log(`Status: ${res.status} (${elapsed}ms)`);
+    const text = await res.text();
+    console.log(`Body (first 500): ${text.slice(0, 500)}`);
+
+    if (res.status === 504) {
+      console.error("FAIL: Got 504 — server is hanging. Payment middleware or body parsing is broken.");
+      process.exit(1);
+    }
+    if (res.status !== 402) {
+      console.error(`FAIL: Expected 402, got ${res.status}`);
+      process.exit(1);
+    }
+    // Check payment-required header
+    const pr = res.headers.get("payment-required");
+    if (pr) {
+      console.log("payment-required header: present ✓");
+    }
+    console.log("PASS: Unauthenticated request returns 402");
+  } catch (e: any) {
+    const elapsed = Date.now() - t0;
+    if (e.name === "AbortError") {
+      console.error(`FAIL: Request timed out after ${elapsed}ms — server is hanging`);
+    } else {
+      console.error(`FAIL: ${e.message} (${elapsed}ms)`);
+    }
+    process.exit(1);
+  }
+}
+
 async function testGenerate() {
-  console.log("\n========== STEP 1: POST /generate ==========");
+  console.log("\n========== STEP 1: POST /generate (authenticated) ==========");
   const header = await buildAgentkitHeader();
+  const t0 = Date.now();
 
-  const res = await fetch(`${BASE}/generate`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      agentkit: header,
-    },
-    body: JSON.stringify({ prompt: "A cat sitting on a keyboard" }),
-  });
+  let res: Response;
+  try {
+    res = await fetchWithTimeout(`${BASE}/generate`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        agentkit: header,
+      },
+      body: JSON.stringify({ prompt: "A cat sitting on a keyboard" }),
+    });
+  } catch (e: any) {
+    const elapsed = Date.now() - t0;
+    if (e.name === "AbortError") {
+      console.error(`FAIL: Request timed out after ${elapsed}ms — server is hanging`);
+    } else {
+      console.error(`FAIL: ${e.message} (${elapsed}ms)`);
+    }
+    process.exit(1);
+  }
 
-  console.log(`Status: ${res.status} ${res.statusText}`);
+  const elapsed = Date.now() - t0;
+  console.log(`Status: ${res.status} ${res.statusText} (${elapsed}ms)`);
   console.log("Response headers:");
   res.headers.forEach((v, k) => console.log(`  ${k}: ${v}`));
 
   const text = await res.text();
   console.log(`Body length: ${text.length}`);
 
+  if (res.status === 504) {
+    console.error("FAIL: Got 504 — server is hanging even with auth.");
+    process.exit(1);
+  }
+
   if (text.length === 0) {
     console.error("FAIL: Empty response body");
-    // Check for payment-required header
     const pr = res.headers.get("payment-required");
     if (pr) {
       console.log("payment-required header present — decoding:");
@@ -104,7 +171,7 @@ async function testGenerate() {
   }
 
   if (res.status === 402) {
-    console.error("FAIL: Got 402 Payment Required");
+    console.error("FAIL: Got 402 Payment Required (auth not accepted)");
     if (data.agentHints) {
       console.log("Hints:", data.agentHints);
     }
@@ -162,9 +229,9 @@ async function main() {
   console.log("========== STEP 0: Health checks ==========");
 
   const [landing, skill, facilitator] = await Promise.all([
-    fetch(`${BASE}/`).then((r) => ({ status: r.status, ok: r.ok })),
-    fetch(`${BASE}/skill.md`).then((r) => ({ status: r.status, ok: r.ok })),
-    fetch(`${BASE}/facilitator/supported`).then(async (r) => ({
+    fetchWithTimeout(`${BASE}/`).then((r) => ({ status: r.status, ok: r.ok })),
+    fetchWithTimeout(`${BASE}/skill.md`).then((r) => ({ status: r.status, ok: r.ok })),
+    fetchWithTimeout(`${BASE}/facilitator/supported`).then(async (r) => ({
       status: r.status,
       ok: r.ok,
       body: await r.json().catch(() => null),
@@ -183,7 +250,10 @@ async function main() {
     process.exit(1);
   }
 
-  // Step 1: Generate
+  // Step 0.5: Unauthenticated request should return 402 quickly (not 504)
+  await testUnauthenticated();
+
+  // Step 1: Generate (authenticated)
   const generateResult = await testGenerate();
 
   // Step 2: Poll
