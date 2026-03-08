@@ -58,10 +58,10 @@ const data = await res.json();
 console.log(data);
 // { requestId: "...", status: "queued", pollUrl: "https://x402-worldchain.vercel.app/status/..." }
 
-// Poll for result
+// Poll for result — video generation takes 2-5 minutes, poll every 20 seconds
 const poll = async (url: string): Promise<any> => {
   while (true) {
-    await new Promise(r => setTimeout(r, 8000));
+    await new Promise(r => setTimeout(r, 20000));
     const s = await fetch(url).then(r => r.json());
     console.log("Status:", s.status);
     if (s.status === "completed") return s;
@@ -98,7 +98,7 @@ The server automatically wraps your prompt to produce a 10-second vertical (9:16
 
 ### GET /status/:requestId
 
-Poll this URL every 5-10 seconds until \`status\` is \`"completed"\`.
+Video generation takes 2-5 minutes. Poll this URL every 20 seconds until \`status\` is \`"completed"\`. Be patient — do not give up early.
 
 **Response (processing):**
 \`\`\`json
