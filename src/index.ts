@@ -448,17 +448,6 @@ app.use("/generate", async (c, next) => {
   const contentType = c.req.header("content-type") || "none";
   console.log(`[generate-mw] ${method} ${url} agentkit=${hasAgentkit} content-type=${contentType}`);
 
-  // Read body NOW before payment middleware runs — Vercel's body stream
-  // becomes unreadable after passing through downstream middleware
-  if (method === "POST") {
-    try {
-      const raw = await c.req.text();
-      (c as any)._cachedBody = raw;
-      console.log(`[generate-mw] cached body: ${raw.length} bytes`);
-    } catch (e: any) {
-      console.error(`[generate-mw] body read failed: ${e?.message}`);
-    }
-  }
 
   await next();
 
@@ -524,14 +513,8 @@ app.post("/generate", async (c) => {
   console.log("[generate] Handler reached, reading body...");
   let body: any;
   try {
-    const cached = (c as any)._cachedBody as string | undefined;
-    if (cached) {
-      body = JSON.parse(cached);
-      console.log("[generate] Body (cached):", cached.slice(0, 200));
-    } else {
-      body = await c.req.json();
-      console.log("[generate] Body (stream):", JSON.stringify(body).slice(0, 200));
-    }
+    body = await c.req.json();
+    console.log("[generate] Body:", JSON.stringify(body).slice(0, 200));
   } catch (e: any) {
     console.error("[generate] Failed to parse body:", e?.message || e);
     return c.json({ error: "Invalid JSON body. Send {\"prompt\": \"...\"}", detail: e?.message }, 400);
