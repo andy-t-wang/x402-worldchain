@@ -401,10 +401,11 @@ if (registrationWalletClient && registrationAccount) {
 // --- Enrich 402 responses with agent-friendly guidance ---
 app.use("/generate", async (c, next) => {
   await next();
-  if (c.res.status === 402) {
-    const original = await c.res.json().catch(() => ({}));
+
+  // Check for x402 v2 payment-required header (returns 402 status or 200 with header)
+  const hasPaymentRequired = !!c.res.headers.get("payment-required");
+  if (c.res.status === 402 || hasPaymentRequired) {
     const hasAgentkitHeader = !!c.req.header("agentkit");
-    c.res = undefined as any;
 
     const hints: string[] = [];
     if (!hasAgentkitHeader) {
@@ -429,13 +430,15 @@ app.use("/generate", async (c, next) => {
       "Alternatively, pay $0.55 via x402 (exact scheme on eip155:480 World Chain) using @x402/client.",
     );
 
-    return c.json(
-      {
-        ...original,
-        agentHints: hints,
+    // Preserve the payment-required header, return proper 402 with body
+    const paymentHeader = c.res.headers.get("payment-required");
+    c.res = new Response(JSON.stringify({ error: "Payment required", agentHints: hints }), {
+      status: 402,
+      headers: {
+        "Content-Type": "application/json",
+        ...(paymentHeader ? { "payment-required": paymentHeader } : {}),
       },
-      402,
-    );
+    });
   }
 });
 
