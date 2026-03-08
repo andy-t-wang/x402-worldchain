@@ -199,7 +199,7 @@ const httpServer = new x402HTTPResourceServer(
 ).onProtectedRequest(hooks.requestHook);
 
 // --- Hono app ---
-const app = new Hono();
+const app = new Hono<{ Variables: { rawBody: string } }>();
 
 // --- Force HTTPS in request URL (Vercel reports http:// internally) ---
 app.use("/*", async (c, next) => {
@@ -208,6 +208,19 @@ app.use("/*", async (c, next) => {
     const url = new URL(c.req.url);
     url.protocol = "https:";
     Object.defineProperty(c.req.raw, "url", { value: url.toString() });
+  }
+  return next();
+});
+
+// --- Cache request body before payment middleware consumes it ---
+app.use("/generate", async (c, next) => {
+  try {
+    const cloned = c.req.raw.clone();
+    const text = await cloned.text();
+    c.set("rawBody", text);
+    console.log("[body-cache] Cached body for /generate:", text.slice(0, 200));
+  } catch (e) {
+    console.error("[body-cache] Failed to cache body:", e);
   }
   return next();
 });
@@ -470,8 +483,15 @@ app.post("/generate", async (c) => {
   console.log("[generate] Handler reached, parsing body...");
   let body: any;
   try {
-    body = await c.req.json();
-    console.log("[generate] Body:", JSON.stringify(body));
+    // Body may already be consumed by payment/agentkit middleware — use cached version
+    const rawBody = c.get("rawBody") as string | undefined;
+    if (rawBody) {
+      body = JSON.parse(rawBody);
+      console.log("[generate] Body (from cache):", rawBody.slice(0, 200));
+    } else {
+      body = await c.req.json();
+      console.log("[generate] Body (from stream):", JSON.stringify(body));
+    }
   } catch (e) {
     console.error("[generate] Failed to parse request body:", e);
     return c.json({ error: "Invalid JSON body" }, 400);
