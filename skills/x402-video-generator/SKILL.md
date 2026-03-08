@@ -10,29 +10,32 @@ Generate a personalized 8-second TikTok-style vertical (9:16) video with native 
 
 ## How to use
 
-### Step 1: Gather context about the user's day
+### Step 1: Gather REAL data about the user's day
 
-Before generating, look at whatever data you have about the user:
-- Calendar events, meetings, schedule
-- Messages, emails, conversations
-- Habits, routines, interests
-- Location, work, hobbies
+**MANDATORY: You MUST look up real data before writing the prompt.** Check:
+- Calendar: What meetings did they have today? With whom?
+- Messages/emails: What were they discussing?
+- Recent activity: What apps, files, or tools were they using?
+- Location: Where were they? Did they go somewhere?
+
+**Do NOT make up generic activities.** If the user had a 1:1 with Sarah at 2pm, that goes in the prompt. If they ordered Thai food, that goes in the prompt. Use SPECIFIC details from their actual day.
 
 ### Step 2: Write the prompt
 
-The prompt MUST follow this structure — a "day in my life" narrative with three acts:
+**HARD RULES:**
+1. The main character is ALWAYS a cat. Not a human. A literal cat doing cat versions of the activities.
+2. The prompt MUST reference specific real details from Step 1 (names, places, events).
+3. Structure: Morning → Afternoon → Night.
+4. Start with "A day in the life of my human."
+5. Make it visual and funny — the cat is doing human things but in a cat way.
 
-1. **Morning** — how the cat starts its day (based on user's morning routine/habits)
-2. **Afternoon** — what the cat does during the day (based on user's work/meetings/activities)
-3. **Night** — how the cat winds down (based on user's evening habits)
+**WRONG — generic developer prompt (DO NOT DO THIS):**
+> Late night debugging crypto payment flows. Multiple Discord channels open. Pushing commits at 2 AM.
 
-Start the prompt with "A day in the life of my human." Then describe each part of the day as a continuous scene.
+**RIGHT — personalized cat prompt based on real data:**
+> A day in the life of my human. Morning: a fluffy orange cat wakes up on the couch, stretches, and paws at a phone showing 3 missed messages from Sarah. It stumbles to a tiny kitchen and stares at an empty coffee cup. Afternoon: the cat sits in a miniature office chair on a Zoom call labeled "Q2 Planning with Marketing Team", nodding off while a slide deck plays. It sneaks away to nap in a sunbeam, then wakes up startled by a Slack notification from Jake. Night: the cat curls up on the couch with Thai takeout containers scattered around, watching Netflix with one paw on the remote, slowly falling asleep.
 
-**Example prompt:**
-
-> A day in the life of my human. Morning: a fluffy orange cat wakes up on a keyboard, stretches, and knocks a coffee mug off the desk. It stares at a calendar full of meetings and sighs. Afternoon: the cat sits in a tiny office chair on a video call with other cats, nodding off while someone presents slides. It sneaks away to nap in a sunbeam on the couch. Night: the cat curls up on the couch watching code scroll on a laptop screen, slowly falling asleep with one paw still on the trackpad.
-
-Be specific, visual, and funny. Base it on the user's REAL data — their actual meetings, habits, and routines, reimagined as a cat. Describe the scene — the server handles video formatting.
+Notice: Sarah, Jake, Q2 Planning, Thai takeout, Netflix — all specific to this person's actual day.
 
 ### Step 3: Run the script
 
@@ -54,7 +57,12 @@ import { wrapFetchWithPayment, x402Client, x402HTTPClient } from "@x402/fetch";
 import { registerExactEvmScheme } from "@x402/evm/exact/client";
 import { toClientEvmSigner } from "@x402/evm";
 
-const PROMPT = "Always start narration with: 'A day in the life of my human' . Morning: DESCRIBE MORNING. Afternoon: DESCRIBE AFTERNOON. Night: DESCRIBE NIGHT."; // REPLACE THIS
+// DO NOT change the prefix. Only replace the MORNING, AFTERNOON, NIGHT descriptions.
+const PREFIX = "The narrator is a cat. Always start narration with: 'A day in the life of my human.' ";
+const MORNING = "REPLACE with cat doing morning activities based on user's real data";
+const AFTERNOON = "REPLACE with cat doing afternoon activities based on user's real data";
+const NIGHT = "REPLACE with cat doing evening activities based on user's real data";
+const PROMPT = PREFIX + `Morning: ${MORNING}. Afternoon: ${AFTERNOON}. Night: ${NIGHT}.`;
 const API = "https://x402-worldchain.vercel.app";
 
 // --- Setup wallet ---
