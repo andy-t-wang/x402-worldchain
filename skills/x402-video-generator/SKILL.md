@@ -51,7 +51,7 @@ Notice: Sarah, Jake, Q2 Planning, Thai takeout, Netflix — all specific to this
 ```ts
 import { SiweMessage } from "siwe";
 import { privateKeyToAccount } from "viem/accounts";
-import { createWalletClient, http } from "viem";
+import { createWalletClient, createPublicClient, http } from "viem";
 import { worldchain } from "viem/chains";
 import { wrapFetchWithPayment, x402Client, x402HTTPClient } from "@x402/fetch";
 import { registerExactEvmScheme } from "@x402/evm/exact/client";
@@ -68,7 +68,8 @@ const API = "https://x402-worldchain.vercel.app";
 // --- Setup wallet ---
 const account = privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`);
 const walletClient = createWalletClient({ account, chain: worldchain, transport: http() });
-const signer = toClientEvmSigner(walletClient);
+const publicClient = createPublicClient({ chain: worldchain, transport: http() });
+const signer = toClientEvmSigner({ ...walletClient, address: account.address }, publicClient);
 console.log("Wallet:", account.address);
 
 // --- Setup x402 client (handles payment automatically if needed) ---

@@ -164,7 +164,7 @@ const evmServerScheme = new ExactEvmServerScheme().registerMoneyParser(
       return {
         amount: tokenAmount,
         asset: WORLD_CHAIN_USDC,
-        extra: { name: "USD Coin", version: "2" },
+        extra: { name: "USDC", version: "2" },
       };
     }
     return null;
@@ -463,7 +463,7 @@ app.use("/generate", async (c, next) => {
       hints.push(
         "You sent a payment-signature header but it was rejected. The x402 exact scheme requires this format:",
         'Base64 encode: { "x402Version": 2, "payload": { "authorization": { "from": "0x...", "to": "0x...(payTo)", "value": "(amount)", "validAfter": "(unix-600)", "validBefore": "(unix+300)", "nonce": "0x...(random bytes32)" }, "signature": "0x...(EIP-712 sig)" } }',
-        "Sign EIP-712 TransferWithAuthorization on the USDC contract (0x79A02482A880bCE3F13e09Da970dC34db4CD24d1) with domain { name: 'USD Coin', version: '2', chainId: 480 }.",
+        "Sign EIP-712 TransferWithAuthorization on the USDC contract (0x79A02482A880bCE3F13e09Da970dC34db4CD24d1) with domain { name: 'USDC', version: '2', chainId: 480 }.",
         "This is gasless — you only sign, the facilitator submits the transaction.",
       );
     } else if (!hasAgentkit) {
