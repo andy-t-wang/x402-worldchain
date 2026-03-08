@@ -486,7 +486,7 @@ export const landingPageHtml = `<!DOCTYPE html>
       </div>
       <h1>See human-backed agents <em>in action</em></h1>
       <p class="hero-sub">
-        Your agent knows you from your conversations together. Let it imagine a day in your life&nbsp;&mdash; generated as a 10-second TikTok-style video with voiceover, powered by World&nbsp;ID.
+        Your agent knows you from your conversations together. Let it imagine a day in your life&nbsp;&mdash; generated as a short video with sound, powered by World&nbsp;ID.
       </p>
       <div class="hero-actions">
         <a href="#get-started" class="btn btn--primary">
@@ -508,7 +508,7 @@ export const landingPageHtml = `<!DOCTYPE html>
         <div class="pricing-card">
           <h3>Unverified</h3>
           <p>Pay per generation via x402 on World&nbsp;Chain</p>
-          <div class="price">$0.55</div>
+          <div class="price">$1.20</div>
         </div>
       </div>
     </section>

@@ -29,7 +29,7 @@ import {
 
 // --- Config ---
 const NETWORK = "eip155:480" as const; // World Chain
-const PRICE = "$0.55";
+const PRICE = "$1.20";
 const FREE_TRIAL_USES = 1;
 const PORT = 4021;
 
@@ -412,12 +412,20 @@ if (registrationWalletClient && registrationAccount) {
 
 // --- Enrich 402 responses with agent-friendly guidance ---
 app.use("/generate", async (c, next) => {
+  const method = c.req.method;
+  const url = c.req.url;
+  const hasAgentkit = !!c.req.header("agentkit");
+  const contentType = c.req.header("content-type") || "none";
+  console.log(`[generate-mw] ${method} ${url} agentkit=${hasAgentkit} content-type=${contentType}`);
+
   await next();
+
+  console.log(`[generate-mw] Response: ${c.res.status} payment-required=${!!c.res.headers.get("payment-required")} agentkitError=${lastAgentkitError || "none"}`);
 
   // Check for x402 v2 payment-required header (returns 402 status or 200 with header)
   const hasPaymentRequired = !!c.res.headers.get("payment-required");
   if (c.res.status === 402 || hasPaymentRequired) {
-    const hasAgentkitHeader = !!c.req.header("agentkit");
+    const hasAgentkitHeader = hasAgentkit;
 
     const hints: string[] = [];
     if (!hasAgentkitHeader) {
@@ -439,7 +447,7 @@ app.use("/generate", async (c, next) => {
 
     hints.push(
       "If you are not registered in AgentBook, run: npx @worldcoin/agentkit-cli register <your-agent-address>",
-      "Alternatively, pay $0.55 via x402 (exact scheme on eip155:480 World Chain) using @x402/client.",
+      "Alternatively, pay $1.20 via x402 (exact scheme on eip155:480 World Chain) using @x402/client.",
     );
 
     // Preserve the payment-required header, return proper 402 with body
@@ -458,10 +466,12 @@ app.use("/generate", async (c, next) => {
 app.use("/*", paymentMiddlewareFromHTTPServer(httpServer));
 
 app.post("/generate", async (c) => {
-  console.log("[generate] Handler reached");
+  const startTime = Date.now();
+  console.log("[generate] Handler reached, parsing body...");
   let body: any;
   try {
     body = await c.req.json();
+    console.log("[generate] Body:", JSON.stringify(body));
   } catch (e) {
     console.error("[generate] Failed to parse request body:", e);
     return c.json({ error: "Invalid JSON body" }, 400);
@@ -469,18 +479,25 @@ app.post("/generate", async (c) => {
   const prompt = body?.prompt;
 
   if (!prompt || typeof prompt !== "string") {
+    console.error("[generate] Missing or invalid prompt:", typeof prompt, prompt);
     return c.json({ error: "prompt is required" }, 400);
   }
 
-  const fullPrompt = `Create a 10-second vertical 9:16 TikTok-style video with voiceover narration. ${prompt}`;
-  console.log(`[generate] Submitting video for prompt: "${fullPrompt}"`);
+  console.log(`[generate] Submitting to fal.ai veo3.1/fast: "${prompt.slice(0, 100)}..."`);
 
   try {
-    const { request_id } = await fal.queue.submit("fal-ai/minimax-video", {
-      input: { prompt: fullPrompt },
+    const { request_id } = await fal.queue.submit("fal-ai/veo3.1/fast", {
+      input: {
+        prompt,
+        aspect_ratio: "9:16",
+        duration: "8s",
+        resolution: "720p",
+        generate_audio: true,
+      },
     });
 
-    console.log(`[generate] Queued with request_id: ${request_id}`);
+    const elapsed = Date.now() - startTime;
+    console.log(`[generate] SUCCESS queued=${request_id} elapsed=${elapsed}ms`);
 
     return c.json({
       requestId: request_id,
@@ -488,33 +505,37 @@ app.post("/generate", async (c) => {
       prompt,
       pollUrl: `https://x402-worldchain.vercel.app/status/${request_id}`,
     });
-  } catch (e) {
-    console.error("[generate] fal.queue.submit failed:", e);
-    return c.json({ error: "Video generation failed to queue" }, 500);
+  } catch (e: any) {
+    const elapsed = Date.now() - startTime;
+    console.error(`[generate] FAILED elapsed=${elapsed}ms error=${e?.message || e}`, e);
+    return c.json({ error: "Video generation failed to queue", detail: e?.message }, 500);
   }
 });
 
 app.get("/status/:id", async (c) => {
   const requestId = c.req.param("id");
+  console.log(`[status] Checking ${requestId}`);
 
   try {
-    const status = await fal.queue.status("fal-ai/minimax-video", {
+    const status = await fal.queue.status("fal-ai/veo3.1/fast", {
       requestId,
       logs: false,
     });
+    console.log(`[status] ${requestId} -> ${status.status}`);
 
     if (status.status === "COMPLETED") {
       try {
-        const result = await fal.queue.result("fal-ai/minimax-video", {
+        const result = await fal.queue.result("fal-ai/veo3.1/fast", {
           requestId,
         });
+        console.log(`[status] ${requestId} result fetched, keys: ${Object.keys(result.data || {}).join(",")}`);
         return c.json({
           status: "completed",
           requestId,
           video: result.data,
         });
-      } catch (e) {
-        console.error("[status] Failed to fetch result:", e);
+      } catch (e: any) {
+        console.error(`[status] ${requestId} result fetch failed: ${e?.message || e}`);
         return c.json({ status: "completed", requestId, error: "Result fetch failed, retry this request" });
       }
     }
@@ -523,8 +544,8 @@ app.get("/status/:id", async (c) => {
       status: status.status === "IN_QUEUE" ? "queued" : "processing",
       requestId,
     });
-  } catch (e) {
-    console.error("[status] Failed to check status:", e);
+  } catch (e: any) {
+    console.error(`[status] ${requestId} status check failed: ${e?.message || e}`);
     return c.json({ status: "unknown", requestId, error: "Status check failed, retry this request" });
   }
 });

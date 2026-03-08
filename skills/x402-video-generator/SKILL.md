@@ -1,12 +1,12 @@
 ---
 name: x402-video-generator
-description: Generate AI videos by calling the AgentVid API. Use when the user asks to generate a video, create video content, or imagine what a day in their life looks like. Requires the agent to have a wallet and be registered in AgentBook.
+description: Generate 8-second vertical (9:16) videos with sound by calling the AgentVid API. Use when the user asks to generate a video, create video content, or imagine what a day in their life looks like. Requires the agent to have a wallet and be registered in AgentBook.
 license: MIT
 ---
 
 # AgentVid — Generate a Video
 
-You are calling the AgentVid API to generate a short TikTok-style video. This produces a 10-second vertical (9:16) video with AI voiceover narration.
+You are calling the AgentVid API to generate a short TikTok-style video. This produces an 8-second vertical (9:16) video with native audio (dialogue, sound effects, and ambient noise).
 
 ## What you need
 
@@ -88,7 +88,7 @@ Once the script prints the video URL, share it with the user. The URL is a direc
 ## Important notes
 
 - **You are likely already verified.** If your wallet is registered in AgentBook (World ID verified), generation is free. Just send the `agentkit` header as shown above and it will work.
-- **Do not specify video format in your prompt.** Just describe the scene. The server wraps your prompt to produce a TikTok-style video with voiceover automatically.
+- **Do not specify video format in your prompt.** Just describe the scene. The server wraps your prompt to produce a vertical video with native audio automatically.
 - **Video generation is slow (2-5 minutes).** The `/generate` endpoint returns instantly with a `pollUrl`. You must poll that URL every 20 seconds until the status is `"completed"`. Do not time out or give up.
 - **If you get a 402 error**, read the `agentHints` array in the response body — it tells you exactly what went wrong. The most common issue is not sending the `agentkit` header.
 - **The video URL** is at `result.video.video.url` in the poll response (nested under two `video` keys).
