@@ -44,8 +44,7 @@ const REGISTRATION_MAX_SPONSOR_WEI = parseBigIntEnv(
 const ADDRESS_REGEX = /^0x[a-fA-F0-9]{40}$/;
 
 const EVM_ADDRESS = process.env.EVM_ADDRESS!;
-const FACILITATOR_URL =
-  process.env.FACILITATOR_URL || "https://x402-worldchain.vercel.app/facilitator";
+const FACILITATOR_URL = process.env.FACILITATOR_URL || "";
 const FAL_KEY = process.env.FAL_KEY!;
 const FACILITATOR_PRIVATE_KEY = process.env.FACILITATOR_PRIVATE_KEY as
   | `0x${string}`
@@ -172,8 +171,17 @@ const evmServerScheme = new ExactEvmServerScheme().registerMoneyParser(
   },
 );
 
-const facilitatorClient = new HTTPFacilitatorClient({ url: FACILITATOR_URL });
-const resourceServer = new x402ResourceServer(facilitatorClient)
+// If we have a local facilitator, create a wrapper that returns supported info
+// directly (no HTTP call) to avoid circular self-requests on Vercel cold start.
+// Otherwise fall back to a remote facilitator URL.
+const facilitatorClient = facilitator402
+  ? {
+      async getSupported() { return facilitator402!.getSupported(); },
+      async verify(p: any, r: any) { return facilitator402!.verify(p, r); },
+      async settle(p: any, r: any) { return facilitator402!.settle(p, r); },
+    }
+  : new HTTPFacilitatorClient({ url: FACILITATOR_URL || "https://x402.org/facilitator" });
+const resourceServer = new x402ResourceServer(facilitatorClient as any)
   .register(NETWORK, evmServerScheme)
   .registerExtension(agentkitResourceServerExtension);
 
@@ -470,9 +478,7 @@ app.use("/generate", async (c, next) => {
   }
 });
 
-// syncFacilitatorOnStart=false: our facilitator is on this same server,
-// calling it on cold start creates a circular request that 504s on Vercel.
-app.use("/*", paymentMiddlewareFromHTTPServer(httpServer, undefined, undefined, false));
+app.use("/*", paymentMiddlewareFromHTTPServer(httpServer));
 
 app.post("/generate", async (c) => {
   const startTime = Date.now();
