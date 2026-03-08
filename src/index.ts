@@ -451,40 +451,40 @@ app.use("/generate", async (c, next) => {
 
   await next();
 
-  console.log(`[generate-mw] Response: ${c.res.status} payment-required=${!!c.res.headers.get("payment-required")} agentkitError=${lastAgentkitError || "none"}`);
+  console.log(`[generate-mw] Response: ${c.res.status} payment-required=${!!c.res.headers.get("payment-required")}`);
 
   // Check for x402 v2 payment-required header (returns 402 status or 200 with header)
   const hasPaymentRequired = !!c.res.headers.get("payment-required");
   if (c.res.status === 402 || hasPaymentRequired) {
-    const hasAgentkitHeader = hasAgentkit;
+    const hasPaymentSig = !!c.req.header("payment-signature");
 
     const hints: string[] = [];
-    if (!hasAgentkitHeader) {
+    if (hasPaymentSig) {
       hints.push(
-        'You did not send an "agentkit" header. Verified agents (registered in AgentBook with World ID) can generate for free.',
-        "To authenticate: construct a SIWE message for domain \"x402-worldchain.vercel.app\" and URI \"https://x402-worldchain.vercel.app/generate\", sign it with your wallet (EIP-191), then send the base64-encoded JSON payload as the \"agentkit\" header.",
+        "You sent a payment-signature header but it was rejected. The x402 exact scheme requires this format:",
+        'Base64 encode: { "x402Version": 2, "payload": { "authorization": { "from": "0x...", "to": "0x...(payTo)", "value": "(amount)", "validAfter": "(unix-600)", "validBefore": "(unix+300)", "nonce": "0x...(random bytes32)" }, "signature": "0x...(EIP-712 sig)" } }',
+        "Sign EIP-712 TransferWithAuthorization on the USDC contract (0x79A02482A880bCE3F13e09Da970dC34db4CD24d1) with domain { name: 'USD Coin', version: '2', chainId: 480 }.",
+        "This is gasless — you only sign, the facilitator submits the transaction.",
+      );
+    } else if (!hasAgentkit) {
+      hints.push(
+        'Send an "agentkit" header for free access (if World ID verified), or a "payment-signature" header to pay $1.20 USDC.',
+        "Do NOT send both headers in the same request.",
       );
     } else {
       hints.push(
         'An "agentkit" header was present but access was not granted. Possible causes:',
         '- The SIWE message domain must be exactly "x402-worldchain.vercel.app"',
         '- The URI must be exactly "https://x402-worldchain.vercel.app/generate"',
-        "- The chainId must be \"eip155:480\" (World Chain — AgentBook lookup on Base happens automatically)",
-        "- issuedAt must be within the last 5 minutes",
+        "- The chainId must be \"eip155:480\" (World Chain)",
         "- Your agent address must be registered in AgentBook on Base",
-        "- The nonce must be unique (not reused from a previous request)",
+        "- The nonce must be unique (not reused)",
       );
     }
 
-    hints.push(
-      "If you are not registered in AgentBook, run: npx @worldcoin/agentkit-cli register <your-agent-address>",
-      "Alternatively, pay $1.20 via x402 (exact scheme on eip155:480 World Chain) using @x402/client.",
-    );
-
     // Preserve the payment-required header, return proper 402 with body
     const paymentHeader = c.res.headers.get("payment-required");
-    const debugInfo = lastAgentkitError ? { agentkitError: lastAgentkitError } : {};
-    c.res = new Response(JSON.stringify({ error: "Payment required", ...debugInfo, agentHints: hints }), {
+    c.res = new Response(JSON.stringify({ error: "Payment required", agentHints: hints }), {
       status: 402,
       headers: {
         "Content-Type": "application/json",
