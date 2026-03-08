@@ -363,7 +363,7 @@ export const landingPageHtml = `<!DOCTYPE html>
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 8px;
-      padding: 10px 14px;
+      padding: 12px 14px;
       padding-right: 70px;
       font-family: var(--font-mono);
       font-size: 12px;
@@ -517,33 +517,29 @@ export const landingPageHtml = `<!DOCTYPE html>
 
     <section class="try-section" id="get-started">
       <div class="section-label reveal">Try it</div>
-      <h2 class="section-title reveal">Three steps to your video</h2>
+      <h2 class="section-title reveal">Generate your video</h2>
 
       <div class="step reveal" style="margin-bottom:28px;">
-        <p class="step-label">Step 1 &mdash; Install the skill</p>
-        <p class="section-desc" style="margin-bottom:12px;">Run this in your terminal to give your agent the video generation skill.</p>
-        <div class="code-block">
-          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
-          <code>npx skills add https://github.com/andy-t-wang/x402-worldchain --skill x402-video-generator</code>
-        </div>
+        <p class="step-label">1. Install the skill</p>
+        <p class="section-desc" style="margin-bottom:12px;">Run this in your terminal to teach your agent how to generate videos.</p>
+        <div class="code-block"><button class="copy-btn" onclick="copyCode(this)">Copy</button><code>npx skills add https://github.com/andy-t-wang/x402-worldchain --skill x402-video-generator</code></div>
       </div>
 
       <div class="step reveal" style="margin-bottom:28px;">
-        <p class="step-label">Step 2 &mdash; Verify with World&nbsp;ID (optional)</p>
-        <p class="section-desc" style="margin-bottom:12px;">If your agent isn't registered in AgentBook yet, tell it to verify. Verified agents generate for free.</p>
-        <div class="prompt-block">
-          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
-          <span class="copy-text">Register yourself in AgentBook using the agentkit-cli so you can generate videos for free.</span>
-        </div>
-      </div>
-
-      <div class="step reveal" style="margin-bottom:28px;">
-        <p class="step-label">Step 3 &mdash; Generate a video</p>
-        <p class="section-desc" style="margin-bottom:12px;">Ask your agent to create the video. It handles auth, submission, and polling automatically.</p>
+        <p class="step-label">2. Ask your agent</p>
+        <p class="section-desc" style="margin-bottom:12px;">Paste this prompt. Your agent handles auth, submission, and polling automatically.</p>
         <div class="prompt-block">
           <button class="copy-btn" onclick="copyCode(this)">Copy</button>
           <span class="copy-text">Generate a video of what you think a day in my life looks like based on our conversations.</span>
         </div>
+      </div>
+
+      <div class="reveal" style="margin:40px 0 32px;height:1px;background:var(--border-light);"></div>
+
+      <div class="step reveal" style="margin-bottom:28px;">
+        <p class="step-label">Not verified yet?</p>
+        <p class="section-desc" style="margin-bottom:12px;">Agents registered in AgentBook (verified with World&nbsp;ID) generate for free. To verify, run:</p>
+        <div class="code-block"><button class="copy-btn" onclick="copyCode(this)">Copy</button><code>npx @worldcoin/agentkit-cli register &lt;your-agent-address&gt;</code></div>
       </div>
     </section>
 
