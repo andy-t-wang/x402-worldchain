@@ -199,9 +199,10 @@ const httpServer = new x402HTTPResourceServer(
 ).onProtectedRequest(hooks.requestHook);
 
 // --- Hono app ---
-const app = new Hono<{ Variables: { rawBody: string } }>();
+const app = new Hono();
 
 // --- Force HTTPS in request URL (Vercel reports http:// internally) ---
+// --- Also cache POST body before payment middleware consumes the stream ---
 app.use("/*", async (c, next) => {
   const proto = c.req.header("x-forwarded-proto");
   if (proto === "https" && c.req.url.startsWith("http://")) {
@@ -209,18 +210,11 @@ app.use("/*", async (c, next) => {
     url.protocol = "https:";
     Object.defineProperty(c.req.raw, "url", { value: url.toString() });
   }
-  return next();
-});
-
-// --- Cache request body before payment middleware consumes it ---
-app.use("/generate", async (c, next) => {
-  try {
-    const cloned = c.req.raw.clone();
-    const text = await cloned.text();
-    c.set("rawBody", text);
-    console.log("[body-cache] Cached body for /generate:", text.slice(0, 200));
-  } catch (e) {
-    console.error("[body-cache] Failed to cache body:", e);
+  if (c.req.method === "POST") {
+    try {
+      const buf = await c.req.raw.clone().arrayBuffer();
+      (c as any)._cachedBody = new TextDecoder().decode(buf);
+    } catch {}
   }
   return next();
 });
@@ -480,21 +474,20 @@ app.use("/*", paymentMiddlewareFromHTTPServer(httpServer));
 
 app.post("/generate", async (c) => {
   const startTime = Date.now();
-  console.log("[generate] Handler reached, parsing body...");
+  console.log("[generate] Handler reached, reading body...");
   let body: any;
   try {
-    // Body may already be consumed by payment/agentkit middleware — use cached version
-    const rawBody = c.get("rawBody") as string | undefined;
-    if (rawBody) {
-      body = JSON.parse(rawBody);
-      console.log("[generate] Body (from cache):", rawBody.slice(0, 200));
+    const cached = (c as any)._cachedBody as string | undefined;
+    if (cached) {
+      body = JSON.parse(cached);
+      console.log("[generate] Body (cached):", cached.slice(0, 200));
     } else {
       body = await c.req.json();
-      console.log("[generate] Body (from stream):", JSON.stringify(body));
+      console.log("[generate] Body (stream):", JSON.stringify(body));
     }
   } catch (e) {
-    console.error("[generate] Failed to parse request body:", e);
-    return c.json({ error: "Invalid JSON body" }, 400);
+    console.error("[generate] Failed to parse body:", e);
+    return c.json({ error: "Invalid JSON body. Send {\"prompt\": \"...\"}" }, 400);
   }
   const prompt = body?.prompt;
 
