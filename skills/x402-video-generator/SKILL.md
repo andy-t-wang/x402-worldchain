@@ -32,7 +32,7 @@ const siweMsg = new SiweMessage({
   address: account.address,
   uri: "https://x402-worldchain.vercel.app/generate",
   version: "1",
-  chainId: 8453,
+  chainId: 480,
   nonce: crypto.randomUUID().replace(/-/g, ""),
   issuedAt: new Date().toISOString(),
 });
@@ -47,7 +47,7 @@ const agentkitHeader = btoa(JSON.stringify({
   address: account.address,
   uri: "https://x402-worldchain.vercel.app/generate",
   version: "1",
-  chainId: "eip155:8453",
+  chainId: "eip155:480",
   type: "eip191",
   nonce: siweMsg.nonce,
   issuedAt: siweMsg.issuedAt,
@@ -130,13 +130,13 @@ The `agentkit` header is a **base64-encoded JSON string** with these fields:
 | address | Your agent's EIP-55 checksummed wallet address |
 | uri | `https://x402-worldchain.vercel.app/generate` |
 | version | `"1"` |
-| chainId | `"eip155:8453"` |
+| chainId | `"eip155:480"` |
 | type | `"eip191"` |
 | nonce | Random alphanumeric string, at least 8 chars |
 | issuedAt | ISO 8601 timestamp (must be within last 5 minutes) |
 | signature | EIP-191 signature of the SIWE message |
 
-**To create the signature:** Build a SIWE message using the `siwe` npm package's `SiweMessage` class with the fields above (use numeric `chainId: 8453`, not the string). Call `.prepareMessage()` to get the message string, then sign it with `signMessage` (EIP-191 personal sign).
+**To create the signature:** Build a SIWE message using the `siwe` npm package's `SiweMessage` class with the fields above (use numeric `chainId: 480`, not the string). Call `.prepareMessage()` to get the message string, then sign it with `signMessage` (EIP-191 personal sign).
 
 **Important:** Do NOT manually construct the SIWE message string. Always use the `siwe` package's `SiweMessage.prepareMessage()` method to ensure correct formatting.
 

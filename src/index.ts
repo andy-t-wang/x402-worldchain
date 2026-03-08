@@ -418,7 +418,7 @@ app.use("/generate", async (c, next) => {
         'An "agentkit" header was present but access was not granted. Possible causes:',
         '- The SIWE message domain must be exactly "x402-worldchain.vercel.app"',
         '- The URI must be exactly "https://x402-worldchain.vercel.app/generate"',
-        "- The chainId must be \"eip155:8453\" (Base mainnet, where AgentBook lives)",
+        "- The chainId must be \"eip155:480\" (World Chain — AgentBook lookup on Base happens automatically)",
         "- issuedAt must be within the last 5 minutes",
         "- Your agent address must be registered in AgentBook on Base",
         "- The nonce must be unique (not reused from a previous request)",

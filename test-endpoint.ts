@@ -69,7 +69,7 @@ async function main() {
       address: account.address,
       uri: `${BASE}/generate`,
       version: "1",
-      chainId: 8453,
+      chainId: 480,
       nonce: crypto.randomUUID().replace(/-/g, ""),
       issuedAt: new Date().toISOString(),
     });
@@ -81,7 +81,7 @@ async function main() {
       address: account.address,
       uri: `${BASE}/generate`,
       version: "1",
-      chainId: "eip155:8453",
+      chainId: "eip155:480",
       type: "eip191",
       nonce: siweMsg.nonce,
       issuedAt: siweMsg.issuedAt,
