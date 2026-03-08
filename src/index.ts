@@ -470,7 +470,9 @@ app.use("/generate", async (c, next) => {
   }
 });
 
-app.use("/*", paymentMiddlewareFromHTTPServer(httpServer));
+// syncFacilitatorOnStart=false: our facilitator is on this same server,
+// calling it on cold start creates a circular request that 504s on Vercel.
+app.use("/*", paymentMiddlewareFromHTTPServer(httpServer, undefined, undefined, false));
 
 app.post("/generate", async (c) => {
   const startTime = Date.now();
