@@ -146,25 +146,46 @@ if (FACILITATOR_PRIVATE_KEY) {
     ...walletClient,
     address: facilitatorAccount.address,
   } as any);
-  facilitator402 = new x402Facilitator().register(
-    WORLD_CHAIN,
-    new ExactEvmFacilitatorScheme(facilitatorSigner),
-  );
+  const basePublicClient = createPublicClient({
+    chain: base,
+    transport: http(process.env.BASE_RPC_URL || DEFAULT_BASE_RPC_URL),
+  });
+  const baseWalletClient = createWalletClient({
+    account: facilitatorAccount,
+    chain: base,
+    transport: http(process.env.BASE_RPC_URL || DEFAULT_BASE_RPC_URL),
+  });
+  const baseFacilitatorSigner = toFacilitatorEvmSigner({
+    ...basePublicClient,
+    ...baseWalletClient,
+    address: facilitatorAccount.address,
+  } as any);
+  facilitator402 = new x402Facilitator()
+    .register(WORLD_CHAIN, new ExactEvmFacilitatorScheme(facilitatorSigner))
+    .register(BASE_MAINNET, new ExactEvmFacilitatorScheme(baseFacilitatorSigner));
   console.log(
-    `[facilitator] World Chain facilitator enabled for ${facilitatorAccount.address}`,
+    `[facilitator] World Chain + Base facilitator enabled for ${facilitatorAccount.address}`,
   );
 }
 
 // --- x402 resource server setup ---
 const WORLD_CHAIN_USDC = "0x79A02482A880bCE3F13e09Da970dC34db4CD24d1";
+const BASE_USDC = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
 const evmServerScheme = new ExactEvmServerScheme().registerMoneyParser(
   async (amount, network) => {
+    const tokenAmount = Math.round(amount * 1e6).toString();
     if (network === WORLD_CHAIN) {
-      const tokenAmount = Math.round(amount * 1e6).toString();
       return {
         amount: tokenAmount,
         asset: WORLD_CHAIN_USDC,
         extra: { name: "USDC", version: "2" },
+      };
+    }
+    if (network === BASE_MAINNET) {
+      return {
+        amount: tokenAmount,
+        asset: BASE_USDC,
+        extra: { name: "USD Coin", version: "2" },
       };
     }
     return null;
@@ -183,6 +204,7 @@ const facilitatorClient = facilitator402
   : new HTTPFacilitatorClient({ url: FACILITATOR_URL || "https://x402.org/facilitator" });
 const resourceServer = new x402ResourceServer(facilitatorClient as any)
   .register(NETWORK, evmServerScheme)
+  .register(BASE_MAINNET, evmServerScheme)
   .registerExtension(agentkitResourceServerExtension);
 
 const routes = {
@@ -192,6 +214,12 @@ const routes = {
         scheme: "exact",
         price: PRICE,
         network: NETWORK,
+        payTo: EVM_ADDRESS,
+      },
+      {
+        scheme: "exact",
+        price: PRICE,
+        network: BASE_MAINNET,
         payTo: EVM_ADDRESS,
       },
     ],
@@ -463,7 +491,7 @@ app.use("/generate", async (c, next) => {
       hints.push(
         "You sent a payment-signature header but it was rejected. The x402 exact scheme requires this format:",
         'Base64 encode: { "x402Version": 2, "payload": { "authorization": { "from": "0x...", "to": "0x...(payTo)", "value": "(amount)", "validAfter": "(unix-600)", "validBefore": "(unix+300)", "nonce": "0x...(random bytes32)" }, "signature": "0x...(EIP-712 sig)" } }',
-        "Sign EIP-712 TransferWithAuthorization on the USDC contract (0x79A02482A880bCE3F13e09Da970dC34db4CD24d1) with domain { name: 'USDC', version: '2', chainId: 480 }.",
+        "Sign EIP-712 TransferWithAuthorization on USDC. World Chain: contract 0x79A02482A880bCE3F13e09Da970dC34db4CD24d1, domain { name: 'USDC', version: '2', chainId: 480 }. Base: contract 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, domain { name: 'USD Coin', version: '2', chainId: 8453 }.",
         "This is gasless — you only sign, the facilitator submits the transaction.",
       );
     } else if (!hasAgentkit) {
