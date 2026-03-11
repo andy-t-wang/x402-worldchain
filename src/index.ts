@@ -500,14 +500,15 @@ app.use("/generate", async (c, next) => {
         "Do NOT send both headers in the same request.",
       );
     } else {
-      hints.push(
-        'An "agentkit" header was present but access was not granted. Possible causes:',
-        '- The SIWE message domain must be exactly "x402-worldchain.vercel.app"',
-        '- The URI must be exactly "https://x402-worldchain.vercel.app/generate"',
-        "- The chainId must be \"eip155:480\" (World Chain)",
-        "- Your agent address must be registered in AgentBook on Base",
-        "- The nonce must be unique (not reused)",
-      );
+      if (lastAgentkitError) {
+        hints.push(
+          `Agentkit validation failed: ${lastAgentkitError}`,
+        );
+      } else {
+        hints.push(
+          'An "agentkit" header was present but access was not granted.',
+        );
+      }
     }
 
     // Preserve the payment-required header, return proper 402 with body
