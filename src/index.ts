@@ -36,6 +36,7 @@ const PORT = 4021;
 const WORLD_CHAIN = "eip155:480" as const;
 const BASE_MAINNET = "eip155:8453" as const;
 const BASE_AGENT_BOOK = "0xE1D1D3526A6FAa37eb36bD10B933C1b77f4561a4" as const;
+const WORLD_AGENT_BOOK = "0xA23aB2712eA7BBa896930544C7d6636a96b944dA" as const;
 const DEFAULT_BASE_RPC_URL = "https://mainnet.base.org";
 const REGISTRATION_MAX_SPONSOR_WEI = parseBigIntEnv(
   "REGISTRATION_MAX_SPONSOR_WEI",
@@ -50,6 +51,7 @@ const FACILITATOR_PRIVATE_KEY = process.env.FACILITATOR_PRIVATE_KEY as
   | `0x${string}`
   | undefined;
 const BASE_RPC_URL = process.env.BASE_RPC_URL || DEFAULT_BASE_RPC_URL;
+const WORLD_RPC_URL = process.env.WORLD_RPC_URL;
 
 if (!EVM_ADDRESS) throw new Error("EVM_ADDRESS is required");
 if (!FAL_KEY) throw new Error("FAL_KEY is required");
@@ -79,10 +81,18 @@ const basePublicClient = createPublicClient({
   transport: http(BASE_RPC_URL),
 });
 
+const worldPublicClient = createPublicClient({
+  chain: worldchain,
+  transport: http(WORLD_RPC_URL),
+});
+
 let registrationAccount:
   | ReturnType<typeof privateKeyToAccount>
   | undefined;
 let registrationWalletClient:
+  | ReturnType<typeof createWalletClient>
+  | undefined;
+let worldRegistrationWalletClient:
   | ReturnType<typeof createWalletClient>
   | undefined;
 
@@ -93,12 +103,17 @@ if (FACILITATOR_PRIVATE_KEY) {
     chain: base,
     transport: http(BASE_RPC_URL),
   });
+  worldRegistrationWalletClient = createWalletClient({
+    account: registrationAccount,
+    chain: worldchain,
+    transport: http(WORLD_RPC_URL),
+  });
   console.log(
-    `[register] Base registration sponsor enabled for ${registrationAccount.address}`,
+    `[register] Base + World registration sponsor enabled for ${registrationAccount.address}`,
   );
 } else {
   console.log(
-    "[register] Base registration sponsor disabled because FACILITATOR_PRIVATE_KEY is not configured",
+    "[register] Registration sponsor disabled because FACILITATOR_PRIVATE_KEY is not configured",
   );
 }
 
@@ -134,12 +149,12 @@ if (FACILITATOR_PRIVATE_KEY) {
   const facilitatorAccount = privateKeyToAccount(FACILITATOR_PRIVATE_KEY);
   const publicClient = createPublicClient({
     chain: worldchain,
-    transport: http(),
+    transport: http(WORLD_RPC_URL),
   });
   const walletClient = createWalletClient({
     account: facilitatorAccount,
     chain: worldchain,
-    transport: http(),
+    transport: http(WORLD_RPC_URL),
   });
   const facilitatorSigner = toFacilitatorEvmSigner({
     ...publicClient,
@@ -297,13 +312,35 @@ if (facilitator402) {
 }
 
 // --- Sponsored AgentBook registration routes ---
-if (registrationWalletClient && registrationAccount) {
+if (registrationWalletClient && worldRegistrationWalletClient && registrationAccount) {
+  const SUPPORTED_REGISTRATION_NETWORKS = ["base", "world"] as const;
+
+  function getRegistrationClients(network: string) {
+    if (network === "world") {
+      return {
+        publicClient: worldPublicClient,
+        walletClient: worldRegistrationWalletClient!,
+        agentBook: WORLD_AGENT_BOOK,
+        chainLabel: "World Chain",
+      };
+    }
+    return {
+      publicClient: basePublicClient,
+      walletClient: registrationWalletClient!,
+      agentBook: BASE_AGENT_BOOK,
+      chainLabel: "Base",
+    };
+  }
+
   app.get("/register", (c) => {
     return c.json({
       enabled: true,
-      purpose: "Sponsor AgentBook.register on Base mainnet only",
-      sponsoredNetwork: BASE_MAINNET,
-      contract: BASE_AGENT_BOOK,
+      purpose: "Sponsor AgentBook.register on Base mainnet and World Chain",
+      sponsoredNetworks: SUPPORTED_REGISTRATION_NETWORKS,
+      contracts: {
+        base: BASE_AGENT_BOOK,
+        world: WORLD_AGENT_BOOK,
+      },
       maxSponsorCostWei: REGISTRATION_MAX_SPONSOR_WEI.toString(),
       maxSponsorCostEth: formatEther(REGISTRATION_MAX_SPONSOR_WEI),
       note: "This endpoint only relays AgentBook registration. It is not an x402 facilitator endpoint.",
@@ -322,32 +359,35 @@ if (registrationWalletClient && registrationAccount) {
       );
     }
 
-    if (payload.network !== "base") {
+    if (payload.network !== "base" && payload.network !== "world") {
       return c.json(
         {
           code: "UNSUPPORTED_NETWORK",
-          error: "This sponsor only supports Base mainnet registration.",
-          supportedNetwork: "base",
+          error: "This sponsor supports Base and World Chain registration.",
+          supportedNetworks: SUPPORTED_REGISTRATION_NETWORKS,
           manualRegistration: buildManualRegistration(payload),
         },
         400,
       );
     }
 
-    if (payload.contract.toLowerCase() !== BASE_AGENT_BOOK.toLowerCase()) {
+    const { publicClient, walletClient, agentBook, chainLabel } =
+      getRegistrationClients(payload.network);
+
+    if (payload.contract.toLowerCase() !== agentBook.toLowerCase()) {
       return c.json(
         {
           code: "UNSUPPORTED_CONTRACT",
-          error: "This sponsor only submits to the canonical Base AgentBook.",
-          expectedContract: BASE_AGENT_BOOK,
+          error: `This sponsor only submits to the canonical ${chainLabel} AgentBook.`,
+          expectedContract: agentBook,
           manualRegistration: buildManualRegistration(payload),
         },
         400,
       );
     }
 
-    const existingHumanId = await basePublicClient.readContract({
-      address: BASE_AGENT_BOOK,
+    const existingHumanId = await publicClient.readContract({
+      address: agentBook,
       abi: LOOKUP_HUMAN_ABI,
       functionName: "lookupHuman",
       args: [payload.agent],
@@ -357,7 +397,7 @@ if (registrationWalletClient && registrationAccount) {
       return c.json(
         {
           code: "ALREADY_REGISTERED",
-          error: "This agent address is already registered on Base.",
+          error: `This agent address is already registered on ${chainLabel}.`,
           humanId: `0x${existingHumanId.toString(16)}`,
         },
         409,
@@ -376,16 +416,16 @@ if (registrationWalletClient && registrationAccount) {
     ];
 
     try {
-      const feeEstimate = await basePublicClient.estimateFeesPerGas();
+      const feeEstimate = await publicClient.estimateFeesPerGas();
       const maxFeePerGas = feeEstimate.maxFeePerGas ?? feeEstimate.gasPrice;
 
       if (!maxFeePerGas) {
-        throw new Error("Unable to estimate Base gas fees");
+        throw new Error(`Unable to estimate ${chainLabel} gas fees`);
       }
 
-      const gas = await basePublicClient.estimateContractGas({
+      const gas = await publicClient.estimateContractGas({
         account: registrationAccount,
-        address: BASE_AGENT_BOOK,
+        address: agentBook,
         abi: REGISTER_ABI,
         functionName: "register",
         args: [
@@ -404,7 +444,7 @@ if (registrationWalletClient && registrationAccount) {
           {
             code: "SPONSOR_GAS_TOO_HIGH",
             error:
-              "Base gas is above the sponsor cap right now. Try again later or self-send the transaction.",
+              `${chainLabel} gas is above the sponsor cap right now. Try again later or self-send the transaction.`,
             estimatedGas: gas.toString(),
             maxFeePerGas: maxFeePerGas.toString(),
             estimatedSponsorCostWei: estimatedSponsorCostWei.toString(),
@@ -417,9 +457,9 @@ if (registrationWalletClient && registrationAccount) {
         );
       }
 
-      const { request } = await basePublicClient.simulateContract({
+      const { request } = await publicClient.simulateContract({
         account: registrationAccount,
-        address: BASE_AGENT_BOOK,
+        address: agentBook,
         abi: REGISTER_ABI,
         functionName: "register",
         args: [
@@ -433,12 +473,12 @@ if (registrationWalletClient && registrationAccount) {
         maxPriorityFeePerGas: feeEstimate.maxPriorityFeePerGas,
       });
 
-      const txHash = await registrationWalletClient.writeContract(request);
+      const txHash = await walletClient.writeContract(request);
 
       return c.json({
         sponsored: true,
         txHash,
-        contract: BASE_AGENT_BOOK,
+        contract: agentBook,
         network: payload.network,
         estimatedSponsorCostWei: estimatedSponsorCostWei.toString(),
         estimatedSponsorCostEth: formatEther(estimatedSponsorCostWei),
