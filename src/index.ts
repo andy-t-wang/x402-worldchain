@@ -50,7 +50,6 @@ const FAL_KEY = process.env.FAL_KEY!;
 const FACILITATOR_PRIVATE_KEY = process.env.FACILITATOR_PRIVATE_KEY as
   | `0x${string}`
   | undefined;
-const BASE_RPC_URL = process.env.BASE_RPC_URL || DEFAULT_BASE_RPC_URL;
 const WORLD_RPC_URL = process.env.WORLD_RPC_URL;
 
 if (!EVM_ADDRESS) throw new Error("EVM_ADDRESS is required");
@@ -76,11 +75,6 @@ const hooks = createAgentkitHooks({
   },
 });
 
-const basePublicClient = createPublicClient({
-  chain: base,
-  transport: http(BASE_RPC_URL),
-});
-
 const worldPublicClient = createPublicClient({
   chain: worldchain,
   transport: http(WORLD_RPC_URL),
@@ -89,27 +83,19 @@ const worldPublicClient = createPublicClient({
 let registrationAccount:
   | ReturnType<typeof privateKeyToAccount>
   | undefined;
-let registrationWalletClient:
-  | ReturnType<typeof createWalletClient>
-  | undefined;
 let worldRegistrationWalletClient:
   | ReturnType<typeof createWalletClient>
   | undefined;
 
 if (FACILITATOR_PRIVATE_KEY) {
   registrationAccount = privateKeyToAccount(FACILITATOR_PRIVATE_KEY);
-  registrationWalletClient = createWalletClient({
-    account: registrationAccount,
-    chain: base,
-    transport: http(BASE_RPC_URL),
-  });
   worldRegistrationWalletClient = createWalletClient({
     account: registrationAccount,
     chain: worldchain,
     transport: http(WORLD_RPC_URL),
   });
   console.log(
-    `[register] Base + World registration sponsor enabled for ${registrationAccount.address}`,
+    `[register] World Chain registration sponsor enabled for ${registrationAccount.address}`,
   );
 } else {
   console.log(
@@ -312,35 +298,13 @@ if (facilitator402) {
 }
 
 // --- Sponsored AgentBook registration routes ---
-if (registrationWalletClient && worldRegistrationWalletClient && registrationAccount) {
-  const SUPPORTED_REGISTRATION_NETWORKS = ["base", "world"] as const;
-
-  function getRegistrationClients(network: string) {
-    if (network === "world") {
-      return {
-        publicClient: worldPublicClient,
-        walletClient: worldRegistrationWalletClient!,
-        agentBook: WORLD_AGENT_BOOK,
-        chainLabel: "World Chain",
-      };
-    }
-    return {
-      publicClient: basePublicClient,
-      walletClient: registrationWalletClient!,
-      agentBook: BASE_AGENT_BOOK,
-      chainLabel: "Base",
-    };
-  }
-
+if (worldRegistrationWalletClient && registrationAccount) {
   app.get("/register", (c) => {
     return c.json({
       enabled: true,
-      purpose: "Sponsor AgentBook.register on Base mainnet and World Chain",
-      sponsoredNetworks: SUPPORTED_REGISTRATION_NETWORKS,
-      contracts: {
-        base: BASE_AGENT_BOOK,
-        world: WORLD_AGENT_BOOK,
-      },
+      purpose: "Sponsor AgentBook.register on World Chain",
+      network: "worldchain",
+      contract: WORLD_AGENT_BOOK,
       maxSponsorCostWei: REGISTRATION_MAX_SPONSOR_WEI.toString(),
       maxSponsorCostEth: formatEther(REGISTRATION_MAX_SPONSOR_WEI),
       note: "This endpoint only relays AgentBook registration. It is not an x402 facilitator endpoint.",
@@ -359,35 +323,20 @@ if (registrationWalletClient && worldRegistrationWalletClient && registrationAcc
       );
     }
 
-    if (payload.network !== "base" && payload.network !== "world") {
-      return c.json(
-        {
-          code: "UNSUPPORTED_NETWORK",
-          error: "This sponsor supports Base and World Chain registration.",
-          supportedNetworks: SUPPORTED_REGISTRATION_NETWORKS,
-          manualRegistration: buildManualRegistration(payload),
-        },
-        400,
-      );
-    }
-
-    const { publicClient, walletClient, agentBook, chainLabel } =
-      getRegistrationClients(payload.network);
-
-    if (payload.contract.toLowerCase() !== agentBook.toLowerCase()) {
+    if (payload.contract.toLowerCase() !== WORLD_AGENT_BOOK.toLowerCase()) {
       return c.json(
         {
           code: "UNSUPPORTED_CONTRACT",
-          error: `This sponsor only submits to the canonical ${chainLabel} AgentBook.`,
-          expectedContract: agentBook,
+          error: "This sponsor only submits to the canonical World Chain AgentBook.",
+          expectedContract: WORLD_AGENT_BOOK,
           manualRegistration: buildManualRegistration(payload),
         },
         400,
       );
     }
 
-    const existingHumanId = await publicClient.readContract({
-      address: agentBook,
+    const existingHumanId = await worldPublicClient.readContract({
+      address: WORLD_AGENT_BOOK,
       abi: LOOKUP_HUMAN_ABI,
       functionName: "lookupHuman",
       args: [payload.agent],
@@ -397,7 +346,7 @@ if (registrationWalletClient && worldRegistrationWalletClient && registrationAcc
       return c.json(
         {
           code: "ALREADY_REGISTERED",
-          error: `This agent address is already registered on ${chainLabel}.`,
+          error: "This agent address is already registered on World Chain.",
           humanId: `0x${existingHumanId.toString(16)}`,
         },
         409,
@@ -416,16 +365,16 @@ if (registrationWalletClient && worldRegistrationWalletClient && registrationAcc
     ];
 
     try {
-      const feeEstimate = await publicClient.estimateFeesPerGas();
+      const feeEstimate = await worldPublicClient.estimateFeesPerGas();
       const maxFeePerGas = feeEstimate.maxFeePerGas ?? feeEstimate.gasPrice;
 
       if (!maxFeePerGas) {
-        throw new Error(`Unable to estimate ${chainLabel} gas fees`);
+        throw new Error("Unable to estimate World Chain gas fees");
       }
 
-      const gas = await publicClient.estimateContractGas({
+      const gas = await worldPublicClient.estimateContractGas({
         account: registrationAccount,
-        address: agentBook,
+        address: WORLD_AGENT_BOOK,
         abi: REGISTER_ABI,
         functionName: "register",
         args: [
@@ -444,7 +393,7 @@ if (registrationWalletClient && worldRegistrationWalletClient && registrationAcc
           {
             code: "SPONSOR_GAS_TOO_HIGH",
             error:
-              `${chainLabel} gas is above the sponsor cap right now. Try again later or self-send the transaction.`,
+              "World Chain gas is above the sponsor cap right now. Try again later or self-send the transaction.",
             estimatedGas: gas.toString(),
             maxFeePerGas: maxFeePerGas.toString(),
             estimatedSponsorCostWei: estimatedSponsorCostWei.toString(),
@@ -457,9 +406,9 @@ if (registrationWalletClient && worldRegistrationWalletClient && registrationAcc
         );
       }
 
-      const { request } = await publicClient.simulateContract({
+      const { request } = await worldPublicClient.simulateContract({
         account: registrationAccount,
-        address: agentBook,
+        address: WORLD_AGENT_BOOK,
         abi: REGISTER_ABI,
         functionName: "register",
         args: [
@@ -473,13 +422,13 @@ if (registrationWalletClient && worldRegistrationWalletClient && registrationAcc
         maxPriorityFeePerGas: feeEstimate.maxPriorityFeePerGas,
       });
 
-      const txHash = await walletClient.writeContract(request);
+      const txHash = await worldRegistrationWalletClient.writeContract(request);
 
       return c.json({
         sponsored: true,
         txHash,
-        contract: agentBook,
-        network: payload.network,
+        contract: WORLD_AGENT_BOOK,
+        network: "worldchain",
         estimatedSponsorCostWei: estimatedSponsorCostWei.toString(),
         estimatedSponsorCostEth: formatEther(estimatedSponsorCostWei),
       });
@@ -678,7 +627,6 @@ type RegistrationPayload = {
   nullifierHash: string;
   proof: string[];
   contract: string;
-  network: string;
 };
 
 function parseRegistrationPayload(input: unknown): RegistrationPayload {
@@ -689,7 +637,6 @@ function parseRegistrationPayload(input: unknown): RegistrationPayload {
   const payload = input as Record<string, unknown>;
   const agent = String(payload.agent ?? "");
   const contract = String(payload.contract ?? "");
-  const network = String(payload.network ?? "");
   const root = String(payload.root ?? "");
   const nonce = String(payload.nonce ?? "");
   const nullifierHash = String(payload.nullifierHash ?? "");
@@ -718,7 +665,6 @@ function parseRegistrationPayload(input: unknown): RegistrationPayload {
     nullifierHash,
     proof: proof.map((value) => String(value)),
     contract,
-    network,
   };
 }
 
